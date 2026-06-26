@@ -120,6 +120,11 @@ fix_stim = visual.TextStim(exp_win,
                             font = "Roboto Mono Medium")
 
 #load in RENS graphics
+RENS_pulse_pattern_names = {RENS_names[cb] : "pause",
+                            RENS_names[cb-1] : "constant",
+                            "compound" : "compound"
+    }
+
 RENS_pulse_pattern_image_list = {"pause": visual.ImageStim(exp_win,
                                     image=os.path.join(stimulus_folder, "pause.png"),
                                     size = RENS_image_size,
@@ -149,12 +154,9 @@ RENS_pulse_pattern_trig_list = {"pause": [(0.0, rens_trig), (0.1, 0), # 3 rapid 
                                              (0.4, rens_trig), (0.5, 0),
                                              (1.0, rens_trig), (1.10, 0),
                                              (1.333, rens_trig), (1.433, 0),
-                                             (1.666, rens_trig), (1.766, 0)                                          ]
+                                             (1.666, rens_trig), (1.766, 0)
+                                             ]
 }
-
-RENS_pulse_pattern_names = {RENS_names[cb] : "pause",
-                            RENS_names[cb-1] : "constant"
-    }
 
 
 RENS_pulse_pattern_images = {RENS_names[cb]: RENS_pulse_pattern_image_list[cb],
@@ -162,20 +164,27 @@ RENS_pulse_pattern_images = {RENS_names[cb]: RENS_pulse_pattern_image_list[cb],
     }
 
 RENS_pulse_pattern_text = {
-    "monopolar": visual.TextStim(exp_win,
-                    text = "You are receiving monopolar RENS",
+    RENS_names[cb]: visual.TextStim(exp_win,
+                    text = "You are receiving " + RENS_names[cb] + " RENS",
                     height = 35,
                     color = "white",
                     pos = RENS_text_pos,
                     wrapWidth= 960
                     ),
-    "bipolar": visual.TextStim(exp_win,
-                    text = "You are receiving bipolar RENS",
+    RENS_names[cb-1]: visual.TextStim(exp_win,
+                    text = "You are receiving " + RENS_names[cb-1] + " RENS",
                     height = 35,
                     color = "white",
                     pos = RENS_text_pos,
                     wrapWidth= 960
-                    ),
+                ),
+    "compound": visual.TextStim(exp_win,
+                text = "You are receiving both " + RENS_names[cb] + " and " + RENS_names[cb-1] + " RENS",
+                height = 35,
+                color = "white",
+                pos = RENS_text_pos,
+                wrapWidth= 960
+                ),
     }
 
 #define waiting function so experiment doesn't freeze as it does with core.wait()
@@ -265,55 +274,58 @@ def termination_check(): #insert throughout experiment so participants can end a
 trial_order = []
 
 #### 4 x blocks (2 RENS + low shock, 2 control + high shock)
-num_blocks_conditioning = 10
-num_blocks_extinction = 10
+num_blocks_conditioning = 4
+num_blocks_extinction = 4
+num_blocks_test = 1
 num_trials_block = {
         "conditioning": {
-            "monopolar": {
+            "RENS1": {
                 "num":1,
-                "stimulus": "RENS",
-                "trialtype": "monopolar",
-                "outcome": "low",
-            },
-            "bipolar": {
-                "num":1,
-                "stimulus": "RENS",
-                "outcome": "low",
-                "trialtype": "bipolar"
+                "stimulus": "RENS1",
+                "trialtype": "RENS1",
+                "outcome": "high",
             },
             "control": {
                 "num":1,
                 "stimulus": None,
-                "choicetrial": False,
-                "choice1": None,
-                "choice2": None,
-                "outcome": "low",
-                "trialtype": "control"
+                "trialtype": "control",
+                "outcome": "med",
             }
         },
         "extinction": {
-            "monopolar": {
+            "compound": {
                 "num":1,
-                "stimulus": "RENS",
-                "trialtype": "monopolar",
-                "outcome": "low",
-            },
-            "bipolar": {
-                "num":1,
-                "stimulus": "RENS",
-                "outcome": "low",
-                "trialtype": "bipolar"
+                "stimulus": "compound",
+                "trialtype": "compound",
+                "outcome": "med",
             },
             "control": {
                 "num":1,
                 "stimulus": None,
-                "choicetrial": False,
-                "choice1": None,
-                "choice2": None,
-                "outcome": "low",
-                "trialtype": "control"
+                "trialtype": "control",
+                "outcome": "med",
             }
-        }
+        },
+        "test": {
+            "RENS1": {
+                "num":1,
+                "stimulus": "RENS1",
+                "trialtype": "RENS1",
+                "outcome": "med",
+            },
+            "RENS2": {
+                "num":1,
+                "stimulus": "RENS2",
+                "trialtype": "RENS2",
+                "outcome": "med",
+            },
+            "control": {
+                "num":1,
+                "stimulus": None,
+                "trialtype": "control",
+                "outcome": "med",
+            }
+            }
 }
 
 for phase, trials in num_trials_block.items():
