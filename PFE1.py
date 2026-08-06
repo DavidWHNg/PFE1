@@ -38,7 +38,6 @@ textStim_arguments = {'height':30,
                       'color': "white",
                       'wrapWidth': 960}
 
-RENS_names = ["monopolar", "bipolar"]
 RENS_image_size = (400,300)
 RENS_image_pos = (0,200)
 RENS_text_pos = (0,300)
@@ -78,7 +77,10 @@ while True:
             print(f"Data for participant {P_info['PID']} already exists. Choose a different participant ID.") ### to avoid re-writing existing data
             
         else:
-            cb = int(P_info["PID"]) % 2
+            cb = int(P_info["PID"]) % 2 
+            
+            # cb = 0: monopolar = pause, bipolar = constant
+            # cb = 1: monopolar = constant, bipolar = pause
             
             break  # Exit the loop if the participant ID is valid
     except KeyboardInterrupt:
@@ -89,12 +91,6 @@ while True:
 datetime = time.strftime("%Y-%m-%d_%H.%M.%S")
 
 # external equipment connected via parallel ports
-shock_levels = 10
-
-shock_trig = {"high": 1, 
-              "low": 11, 
-              "medium": 21} #byte values start on lowest levels
-
 stim_trig = {"RENS": 128, "control": 0} #Pin 8 RENS in AD instrument
 
 if ports_live == True:
@@ -120,18 +116,25 @@ fix_stim = visual.TextStim(exp_win,
                             font = "Roboto Mono Medium")
 
 #load in RENS graphics
-RENS_pulse_pattern_names = {RENS_names[cb] : "pause",
-                            RENS_names[cb-1] : "constant",
-                            "compound" : "compound"
-    }
+RENS_names = ["monopolar", "bipolar"]
 
-RENS_pulse_pattern_image_list = {"pause": visual.ImageStim(exp_win,
-                                    image=os.path.join(stimulus_folder, "pause.png"),
+RENS_pulse_pattern_names = {
+    RENS_names[0]: ["pause", "constant"][cb],
+    RENS_names[1]: ["constant", "pause"][cb],
+    "compound": "compound"
+}
+RENS_pulse_pattern_images = {"monopolar": visual.ImageStim(exp_win,
+                                    image=os.path.join(stimulus_folder, RENS_pulse_pattern_names["monopolar"]+".png"),
                                     size = RENS_image_size,
                                     pos = RENS_image_pos
                                     ),
-                            "constant": visual.ImageStim(exp_win,
-                                    image=os.path.join(stimulus_folder, "constant.png"),
+                            "bipolar": visual.ImageStim(exp_win,
+                                    image=os.path.join(stimulus_folder, RENS_pulse_pattern_names["bipolar"]+".png"),
+                                    size = RENS_image_size,
+                                    pos = RENS_image_pos
+                            ),
+                            "compound": visual.ImageStim(exp_win,
+                                    image=os.path.join(stimulus_folder, RENS_pulse_pattern_names["compound"]+".png"),
                                     size = RENS_image_size,
                                     pos = RENS_image_pos
                             )
@@ -155,37 +158,29 @@ RENS_pulse_pattern_trig_list = {"pause": [(0.0, rens_trig), (0.1, 0), # 3 rapid 
                                              (1.0, rens_trig), (1.10, 0),
                                              (1.333, rens_trig), (1.433, 0),
                                              (1.666, rens_trig), (1.766, 0)
-                                             ]
+                                             ] #alternating rapid + pause vs constant space
 }
 
-
-RENS_pulse_pattern_images = {RENS_names[cb]: RENS_pulse_pattern_image_list[cb],
-                             RENS_names[cb-1]: RENS_pulse_pattern_image_list[cb-1]
-    }
-
 RENS_pulse_pattern_text = {
-    RENS_names[cb]: visual.TextStim(exp_win,
-                    text = "You are receiving " + RENS_names[cb] + " RENS",
-                    height = 35,
-                    color = "white",
-                    pos = RENS_text_pos,
-                    wrapWidth= 960
-                    ),
-    RENS_names[cb-1]: visual.TextStim(exp_win,
-                    text = "You are receiving " + RENS_names[cb-1] + " RENS",
-                    height = 35,
-                    color = "white",
-                    pos = RENS_text_pos,
-                    wrapWidth= 960
-                ),
-    "compound": visual.TextStim(exp_win,
-                text = "You are receiving both " + RENS_names[cb] + " and " + RENS_names[cb-1] + " RENS",
-                height = 35,
-                color = "white",
-                pos = RENS_text_pos,
-                wrapWidth= 960
-                ),
-    }
+    name: visual.TextStim(
+        exp_win,
+        text=f"You are receiving {name} RENS",
+        height=35,
+        color="white",
+        pos=RENS_text_pos,
+        wrapWidth=960
+    )
+    for name in RENS_names
+}
+
+RENS_pulse_pattern_text["compound"] = visual.TextStim(
+    exp_win,
+    text=f"You are receiving a mix of {RENS_names[0]} and {RENS_names[1]} RENS",
+    height=35,
+    color="white",
+    pos=RENS_text_pos,
+    wrapWidth=960
+)
 
 #define waiting function so experiment doesn't freeze as it does with core.wait()
 def wait(time):
@@ -261,7 +256,7 @@ def termination_check(): #insert throughout experiment so participants can end a
     keys_pressed = event.getKeys(keyList=["escape"])  # Check for "escape" key during countdown
     if "escape" in keys_pressed:
         if ports_live:
-            pport.setData(0) # Set all pins to 0 to shut off RENS, shock etc.
+            pport.setData(0) # Set all pins to 0 to shut off RENS, heat etc.
         # Save participant information
 
         save_data(trial_order)
@@ -273,7 +268,7 @@ def termination_check(): #insert throughout experiment so participants can end a
 # Number of trials
 trial_order = []
 
-#### 4 x blocks (2 RENS + low shock, 2 control + high shock)
+#### 4 x blocks (2 RENS + low heat, 2 control + high heat)
 num_blocks_conditioning = 4
 num_blocks_extinction = 4
 num_blocks_test = 1
@@ -281,8 +276,8 @@ num_trials_block = {
         "conditioning": {
             "RENS1": {
                 "num":1,
-                "stimulus": "RENS1",
-                "trialtype": "RENS1",
+                "stimulus": RENS_names[cb],
+                "trialtype": RENS_names[cb],
                 "outcome": "high",
             },
             "control": {
@@ -309,14 +304,14 @@ num_trials_block = {
         "test": {
             "RENS1": {
                 "num":1,
-                "stimulus": "RENS1",
-                "trialtype": "RENS1",
+                "stimulus": RENS_names[cb],
+                "trialtype": RENS_names[cb],
                 "outcome": "med",
             },
             "RENS2": {
                 "num":1,
-                "stimulus": "RENS2",
-                "trialtype": "RENS2",
+                "stimulus": RENS_names[1-cb],
+                "trialtype": RENS_names[1-cb],
                 "outcome": "med",
             },
             "control": {
@@ -324,15 +319,22 @@ num_trials_block = {
                 "stimulus": None,
                 "trialtype": "control",
                 "outcome": "med",
+            },
+                "compound": {
+                "num":1,
+                "stimulus": "compound",
+                "trialtype": "compound",
+                "outcome": "med",
             }
             }
 }
 
 for phase, trials in num_trials_block.items():
-    if phase == "conditioning":
-        num_blocks = num_blocks_conditioning 
-    else: 
-        num_blocks = num_blocks_extinction
+    num_blocks = {
+        "conditioning": num_blocks_conditioning,
+        "extinction": num_blocks_extinction,
+        "test": num_blocks_test
+    }[phase]
     
     for block in range(num_blocks):
         temp_trial_order = []
@@ -350,7 +352,7 @@ for phase, trials in num_trials_block.items():
                 if phase == "conditioning":
                     trial["blocknum"] = (block//2) + 1
                 else:
-                    trial["blocknum"] = block
+                    trial["blocknum"] = block + 1
                     
                 temp_trial_order.append(trial)
 
@@ -413,17 +415,17 @@ instructions_text = {
     "welcome": "Welcome to the experiment! Please read the following instructions carefully.", 
     "RENS_introduction": "This experiment aims to investigate the effects of Transcutaneous Electrical Nerve Stimulation (RENS) on pain sensitivity. Different frequencies of RENS may be able to increase pain sensitivity by amplifying the pain signals that travel up your arm and into your brain.\n\n\
         The RENS itself is not painful, but you will feel a small sensation when it is turned on. Today we are testing the effects of monopolar and bipolar frequencies.",
-    "calibration" : "Firstly, we are going to calibrate the pain intensity for the shocks you will receive in the experiment without RENS. As this is a study about pain, we want you to feel a moderate bit of pain, but nothing unbearable. \
+    "calibration" : "Firstly, we are going to calibrate the pain intensity for the heats you will receive in the experiment without RENS. As this is a study about pain, we want you to feel a moderate bit of pain, but nothing unbearable. \
 The machine will start low, and then will gradually work up. We want to get to a level which is painful but tolerable, so roughly at a rating of around 7 out of 10, where 1 is not painful and 10 is very painful.\n\n\
-After each shock you will be asked if that level was ok, and you will be given the option to either try the next level or set the current shock level for the experiment. You can always come back down if it becomes too uncomfortable!\n\n\
+After each heat you will be asked if that level was ok, and you will be given the option to either try the next level or set the current heat level for the experiment. You can always come back down if it becomes too uncomfortable!\n\n\
 Please ask the experimenter if you have any questions at anytime.",
-    "calibration_finish": "Thank you for completing the calibration, your maximum shock intensity has now been set.",
+    "calibration_finish": "Thank you for completing the calibration, your maximum heat intensity has now been set.",
     "experiment" : "We can now begin the experiment. \n\n\
-You will now receive a series of electrical shocks and your task is to rate the intensity of the pain caused by each shock on a rating scale. \
+You will now receive a series of electrical heats and your task is to rate the intensity of the pain caused by each heat on a rating scale. \
 This rating scale ranges from NOT PAINFUL to VERY PAINFUL. \n\n\
-All shocks will be signaled by a 10 second countdown. The shock will occur when an X appears, similarly as in the calibration procedure. \
+All heats will be signaled by a 10 second countdown. The heat will occur when an X appears, similarly as in the calibration procedure. \
 On RENS trials, you will be given the choice between receiving monopolar or bipolar frequencies of RENS. Please use your mouse to select your choice. \
-As you are waiting for the shock during the countdown, you will also be asked to rate how painful you expect the following shock to be. After each trial there will be a brief interval to allow you to rest between shocks. The task should take roughly 20 minutes. \n\n\
+As you are waiting for the heat during the countdown, you will also be asked to rate how painful you expect the following heat to be. After each trial there will be a brief interval to allow you to rest between heats. The task should take roughly 20 minutes. \n\n\
 Please ask the experimenter if you have any questions now before proceeding.",
     "continue" : "\n\nPress spacebar to continue",
     "end" : "This concludes the experiment. Please ask the experimenter to help remove the devices.",
@@ -433,13 +435,13 @@ Please ask the experimenter if you have any questions now before proceeding.",
 cue_demo_text = "When you are completely relaxed, press any key to start the next block..."
 
 response_instructions = {
-    "Pain": "How painful was the shock?",
-    "Expectancy": "How painful do you expect the next shock to be?",
-    "Shock": "Press spacebar to activate the shock",
-    "Shock_check": "Would you like to try the previous level of shock again?",
-    "Check": "Please indicate whether you would like to try the next level of shock, stay at this level, or go back to the previous level for the experiment.",
-    "Check_lvl1": "Please indicate whether you would like to try the next level of shock or stay at this level",
-    "Check_max": "Note that this is the maximum level of shock.\n\n\
+    "Pain": "How painful was the heat?",
+    "Expectancy": "How painful do you expect the next heat to be?",
+    "heat": "Press spacebar to activate the heat",
+    "heat_check": "Would you like to try the previous level of heat again?",
+    "Check": "Please indicate whether you would like to try the next level of heat, stay at this level, or go back to the previous level for the experiment.",
+    "Check_lvl1": "Please indicate whether you would like to try the next level of heat or stay at this level",
+    "Check_max": "Note that this is the maximum level of heat.\n\n\
  Would you like to stay at this level or go down a level?",
     "Choice": "Please choose which frequency of RENS you want to receive on this trial."
                          }
@@ -465,27 +467,6 @@ for i in range(0,11):
     
 # Define button_text and buttons dictionaries
 button_text = {
-    "calibration": {
-    "Next": visual.TextStim(exp_win,
-                            text="Try the next shock level",
-                            color="white",
-                            height=25,
-                            pos=(400, -300),
-                            wrapWidth=300
-                            ),                            
-    "Stay": visual.TextStim(exp_win,
-                            text="Stay at this shock level",
-                            color="white",
-                            height=25,
-                            pos=(0, -300),
-                            wrapWidth=300),
-    "Previous": visual.TextStim(exp_win,
-                            text="Set the previous shock level",
-                            color="white",
-                            height=25,
-                            pos=(-400, -300),
-                            wrapWidth=300),
-        },
     "RENS": {
         RENS_names[cb]: visual.TextStim(exp_win,
                     text=RENS_names[cb],
@@ -520,26 +501,6 @@ button_text = {
 }
 
 buttons = {
-    "calibration": {
-            "Next": visual.Rect(exp_win,
-                        width=300,
-                        height=80,
-                        fillColor="black",
-                        lineColor="white",
-                        pos=(400, -300)),
-            "Stay": visual.Rect(exp_win,
-                                width=300,
-                                height=80,
-                                fillColor="black",
-                                lineColor="white",
-                                pos=(0, -300)),
-            "Previous": visual.Rect(exp_win,
-                            width=300,
-                            height=80,
-                            fillColor="black",
-                            lineColor="white",
-                            pos=(-400, -300)),
-    },
     "RENS": {
         RENS_names[cb]: visual.Rect(exp_win,
                     width=300,
@@ -571,13 +532,11 @@ buttons = {
 
 }
 
-calib_finish = False
 
 #### Make trial functions
-    # calibration trials
 def show_fam_trial(current_trial):
     termination_check()
-    # Wait for participant to ready up for shock
+    # Wait for participant to ready up for heat
     visual.TextStim(exp_win,
         text=response_instructions["familiarisation"],
         height = 35,
@@ -587,7 +546,7 @@ def show_fam_trial(current_trial):
     exp_win.flip()
     event.waitKeys(keyList = ["space"])
     
-    # show fixation stimulus + deliver shock
+    # show fixation stimulus + deliver heat
     if pport != None:
         pport.setData(0)
 
@@ -595,7 +554,7 @@ def show_fam_trial(current_trial):
     exp_win.flip()
     
     if pport != None:
-        pport.setData(pain_trig)
+        pport.setData(pain_trig+eda_trig)
         core.wait(port_buffer_duration)
         pport.setData(0)
     
@@ -625,7 +584,7 @@ def show_trial(current_trial):
         pport.setData(0)
         
     exp_win.flip()
-    # Start countdown to shock
+    # Start countdown to heat
     # Make a count-down screen
     countdown_timer = core.CountdownTimer(10)  # Set the initial countdown time to 10 seconds
   
@@ -636,7 +595,7 @@ def show_trial(current_trial):
         
     while countdown_timer.getTime() < 8 and countdown_timer.getTime() > 7: #turn on RENS at 8 seconds
         termination_check()
-        if current_trial["stimulus"] == "RENS":
+        if current_trial["trialtype"] != "control":
             RENS_pulse_pattern_images[current_trial["trialtype"]].draw()
             RENS_pulse_pattern_text[current_trial["trialtype"]].draw()
             if pport != None:
@@ -649,11 +608,11 @@ def show_trial(current_trial):
 
     while countdown_timer.getTime() < 7 and countdown_timer.getTime() > 0: #ask for expectancy at 7 seconds
         termination_check()
-        if current_trial["stimulus"] == "RENS":
+        if current_trial["trialtype"] != "control":
             RENS_pulse_pattern_images[current_trial["trialtype"]].draw()
             RENS_pulse_pattern_text[current_trial["trialtype"]].draw()
             if pport != None:
-                for time, port in RENS_pulse_patterns[current_trial["trialtype"]]:
+                for time, port in RENS_pulse_pattern_trig_list[current_trial["trialtype"]]:
                     termination_check()
                     if abs(countdown_timer.getTime() - math.floor(countdown_timer.getTime()) - time) < timer_precision_range:
                         pport.setData(port)
@@ -667,14 +626,14 @@ def show_trial(current_trial):
     current_trial["exp_response"] = exp_rating.getRating() #saves the expectancy response for that trial
     exp_rating.reset() #resets the expectancy slider for subsequent trials
         
-    # deliver shock
+    # deliver heat
     if pport != None:
         pport.setData(0)
     fix_stim.draw()
     exp_win.flip()
     
     if pport != None:
-        pport.setData(shock_trig[current_trial["outcome"]])
+        pport.setData(pain_trig[current_trial["outcome"]]+eda_trig)
         
     wait(port_buffer_duration)
 
@@ -687,7 +646,6 @@ def show_trial(current_trial):
         pain_rating.draw()
         pain_text.draw()
         exp_win.flip()
-            
             
     pain_response_end_time = core.getTime() + response_hold_duration # amount of time for participants to adjust slider after making a response
     
@@ -710,22 +668,23 @@ exp_finish = False
 # Run experiment
 while not exp_finish:
     termination_check()
-    # display welcome and calibration instructions
-    instruction_trial(instructions_text["welcome"],3)
-    instruction_trial(instructions_text["RENS_introduction"],3)
-    instruction_trial(instructions_text["calibration"],8)
-    
-    show_calib_trial(calib_trial_order)
-    
-    instruction_trial(instructions_text["calibration_finish"],3)
-    
-    #display main experiment phase
-    instruction_trial(instructions_text["experiment"],10)
-    for trial in trial_order:
-    # for trial in [t for t in trial_order if t["phase"] == "extinction"]: #for testing extinction
-        show_trial(trial)
+    # # display welcome and familiarisation instructions
+    # instruction_trial(instructions_text["welcome"],3)
+    # instruction_trial(instructions_text["RENS_introduction"],3)
+    # instruction_trial(instructions_text["calibration"],8)
 
-    pport.setData(0) # Set all pins to 0 to shut off RENS, shock etc.    
+
+    
+    # instruction_trial(instructions_text["calibration_finish"],3)
+    
+    # #display main experiment phase
+    # instruction_trial(instructions_text["experiment"],10)
+    # for trial in trial_order:
+    for trial in [t for t in trial_order if t["phase"] == "test"]: #for testing extinction
+        show_trial(trial)
+        
+    if pport != None:
+        pport.setData(0) # Set all pins to 0 to shut off RENS, heat etc.    
     # # save trial data
     save_data(trial_order)
     exit_screen(instructions_text["end"])
