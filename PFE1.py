@@ -42,6 +42,9 @@ RENS_image_size = (400,300)
 RENS_image_pos = (0,200)
 RENS_text_pos = (0,300)
 
+context_image_size = (1920, 1080)
+context_image_pos = (0,0)
+
 timer_precision_range = 0.01 # pulses should be accurate to within 10 milliseconds
 
 # within experiment parameters
@@ -77,7 +80,7 @@ while True:
             print(f"Data for participant {P_info['PID']} already exists. Choose a different participant ID.") ### to avoid re-writing existing data
             
         else:
-            cb = int(P_info["PID"]) % 2 
+            cb = int(P_info["PID"]) % 6 
             
             # cb = 0: monopolar = pause, bipolar = constant
             # cb = 1: monopolar = constant, bipolar = pause
@@ -119,8 +122,8 @@ fix_stim = visual.TextStim(exp_win,
 RENS_names = ["monopolar", "bipolar"]
 
 RENS_pulse_pattern_names = {
-    RENS_names[0]: ["pause", "constant"][cb],
-    RENS_names[1]: ["constant", "pause"][cb],
+    "monopolar": ["pause", "constant"][cb%2],
+    "bipolar": ["constant", "pause"][cb%2],
     "compound": "compound"
 }
 RENS_pulse_pattern_images = {"monopolar": visual.ImageStim(exp_win,
@@ -172,15 +175,28 @@ RENS_pulse_pattern_text = {
     )
     for name in RENS_names
 }
+context_trial_list = ["control", "image","RENS"]
+context_image_names = {
+    context_trial_list[cb%3]: "forest",
+    context_trial_list[cb%3-1]: "mountain",
+    context_trial_list[cb%3-2]: "river"}
 
-RENS_pulse_pattern_text["compound"] = visual.TextStim(
-    exp_win,
-    text=f"You are receiving a mix of {RENS_names[0]} and {RENS_names[1]} RENS",
-    height=35,
-    color="white",
-    pos=RENS_text_pos,
-    wrapWidth=960
-)
+context_images = {"control": visual.ImageStim(exp_win,
+                                    image=os.path.join(stimulus_folder, context_image_names["control"]+".jpg"),
+                                    size = context_image_size,
+                                    pos = context_image_pos
+                                    ),
+                "image": visual.ImageStim(exp_win,
+                                    image=os.path.join(stimulus_folder, context_image_names["image"]+".jpg"),
+                                    size = context_image_size,
+                                    pos = context_image_pos
+                                        ),
+                "RENS": visual.ImageStim(exp_win,
+                                    image=os.path.join(stimulus_folder, context_image_names["RENS"]+".jpg"),
+                                    size = context_image_size,
+                                    pos = context_image_pos
+                                        ),
+}
 
 #define waiting function so experiment doesn't freeze as it does with core.wait()
 def wait(time):
@@ -269,64 +285,107 @@ def termination_check(): #insert throughout experiment so participants can end a
 trial_order = []
 
 #### 4 x blocks (2 RENS + low heat, 2 control + high heat)
-num_blocks_conditioning = 4
-num_blocks_extinction = 4
+num_blocks_conditioning = 1
+num_blocks_extinction = 1
 num_blocks_test = 1
 num_trials_block = {
         "conditioning": {
             "RENS1": {
-                "num":1,
-                "stimulus": RENS_names[cb],
-                "trialtype": RENS_names[cb],
+                "num":9,
+                "stimulus": RENS_names[cb%2],
+                "trialtype": RENS_names[cb%2],
                 "outcome": "high",
+                "context": None,
+            },
+            "RENS2": {
+                "num":9,
+                "stimulus": RENS_names[cb%2-1],
+                "trialtype": RENS_names[cb%2-1],
+                "outcome": "high",
+                "context": None, 
             },
             "control": {
-                "num":1,
+                "num":9,
                 "stimulus": None,
                 "trialtype": "control",
                 "outcome": "med",
-            }
+                "context": "control", 
+            },
+            "image": {
+                "num":3,
+                "stimulus": None,
+                "trialtype": "control",
+                "outcome": "high",
+                "context": "image", 
+            },
         },
         "extinction": {
-            "compound": {
-                "num":1,
-                "stimulus": "compound",
-                "trialtype": "compound",
+            "RENS1": {
+                "num":9,
+                "stimulus": RENS_names[cb%2],
+                "trialtype": RENS_names[cb%2],
                 "outcome": "med",
+                "context": None,
+            },
+            "RENS2": {
+                "num":9,
+                "stimulus": RENS_names[cb%2-1],
+                "trialtype": RENS_names[cb%2-1],
+                "outcome": "med",
+                "context": "RENS", 
             },
             "control": {
-                "num":1,
+                "num":9,
                 "stimulus": None,
                 "trialtype": "control",
                 "outcome": "med",
-            }
+                "context": "control", 
+            },
+            "image": {
+                "num":3,
+                "stimulus": None,
+                "trialtype": "control",
+                "outcome": "high",
+                "context": "image", 
+            },
         },
         "test": {
             "RENS1": {
-                "num":1,
-                "stimulus": RENS_names[cb],
-                "trialtype": RENS_names[cb],
+                "num":6,
+                "stimulus": RENS_names[cb%2],
+                "trialtype": RENS_names[cb%2],
                 "outcome": "med",
+                "context": None,
             },
             "RENS2": {
-                "num":1,
-                "stimulus": RENS_names[1-cb],
-                "trialtype": RENS_names[1-cb],
+                "num":6,
+                "stimulus": RENS_names[cb%2-1],
+                "trialtype": RENS_names[cb%2-1],
                 "outcome": "med",
+                "context": None, 
             },
-            "control": {
-                "num":1,
+            "RENS_context": {
+                "num":6,
                 "stimulus": None,
                 "trialtype": "control",
                 "outcome": "med",
+                "context": "RENS", 
             },
-                "compound": {
-                "num":1,
-                "stimulus": "compound",
-                "trialtype": "compound",
+            "control": {
+                "num":6,
+                "stimulus": None,
+                "trialtype": "control",
                 "outcome": "med",
-            }
-            }
+                "context": "control", 
+            },
+            "image": {
+                "num":2,
+                "stimulus": None,
+                "trialtype": "control",
+                "outcome": "high",
+                "context": "image", 
+            },
+        }
 }
 
 for phase, trials in num_trials_block.items():
@@ -347,7 +406,8 @@ for phase, trials in num_trials_block.items():
                     "stimulus": trial_info["stimulus"],
                     "outcome": trial_info["outcome"],
                     "exp_response": None,
-                    "pain_response": None
+                    "pain_response": None,
+                    "context_stim": context_image_names.get(trial_info["context"])
                 }
                 if phase == "conditioning":
                     trial["blocknum"] = (block//2) + 1
@@ -468,15 +528,15 @@ for i in range(0,11):
 # Define button_text and buttons dictionaries
 button_text = {
     "RENS": {
-        RENS_names[cb]: visual.TextStim(exp_win,
-                    text=RENS_names[cb],
+        RENS_names[cb%2]: visual.TextStim(exp_win,
+                    text=RENS_names[cb%2],
                     color="white",
                     height=25,
                     pos=(400, -300),
                     wrapWidth=300   
                     ),            
-        RENS_names[cb-1]: visual.TextStim(exp_win,
-                    text=RENS_names[cb-1],
+        RENS_names[cb%2-1]: visual.TextStim(exp_win,
+                    text=RENS_names[cb%2-1],
                     color="white",
                     height=25,
                     pos=(-400, -300),
@@ -502,13 +562,13 @@ button_text = {
 
 buttons = {
     "RENS": {
-        RENS_names[cb]: visual.Rect(exp_win,
+        RENS_names[cb%2]: visual.Rect(exp_win,
                     width=300,
                     height=80,
                     fillColor="black",
                     lineColor="white",
                     pos=(400, -300)),  
-        RENS_names[cb-1]: visual.Rect(exp_win,
+        RENS_names[cb%2-1]: visual.Rect(exp_win,
                     width=300,
                     height=80,
                     fillColor="black",
