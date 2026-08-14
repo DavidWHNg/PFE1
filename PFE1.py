@@ -80,7 +80,7 @@ while True:
             print(f"Data for participant {P_info['PID']} already exists. Choose a different participant ID.") ### to avoid re-writing existing data
             
         else:
-            cb = int(P_info["PID"]) % 6 
+            cb = int(P_info["PID"]) % 8
             
             # cb = 0: monopolar = pause, bipolar = constant
             # cb = 1: monopolar = constant, bipolar = pause
@@ -175,28 +175,34 @@ RENS_pulse_pattern_text = {
     )
     for name in RENS_names
 }
-context_trial_list = ["control", "image","RENS"]
+context_trial_list = ["C", "X","F","G"]
 context_image_names = {
-    context_trial_list[cb%3]: "forest",
-    context_trial_list[cb%3-1]: "mountain",
-    context_trial_list[cb%3-2]: "river"}
+    context_trial_list[cb%4]: "forest",
+    context_trial_list[cb%4-1]: "mountain",
+    context_trial_list[cb%4-2]: "river",
+    context_trial_list[cb%4-2]: "plains"}
 
-context_images = {"control": visual.ImageStim(exp_win,
+context_images = {"C": visual.ImageStim(exp_win,
                                     image=os.path.join(stimulus_folder, context_image_names["control"]+".jpg"),
                                     size = context_image_size,
                                     pos = context_image_pos
                                     ),
-                "image": visual.ImageStim(exp_win,
+                "X": visual.ImageStim(exp_win,
                                     image=os.path.join(stimulus_folder, context_image_names["image"]+".jpg"),
                                     size = context_image_size,
                                     pos = context_image_pos
                                         ),
-                "RENS": visual.ImageStim(exp_win,
+                "F": visual.ImageStim(exp_win,
                                     image=os.path.join(stimulus_folder, context_image_names["RENS"]+".jpg"),
                                     size = context_image_size,
                                     pos = context_image_pos
                                         ),
-}
+                "G": visual.ImageStim(exp_win,
+                                    image=os.path.join(stimulus_folder, context_image_names["RENS"]+".jpg"),
+                                    size = context_image_size,
+                                    pos = context_image_pos
+                                        ),
+                }
 
 #define waiting function so experiment doesn't freeze as it does with core.wait()
 def wait(time):
@@ -285,105 +291,119 @@ def termination_check(): #insert throughout experiment so participants can end a
 trial_order = []
 
 #### 4 x blocks (2 RENS + low heat, 2 control + high heat)
-num_blocks_conditioning = 1
-num_blocks_extinction = 1
+num_blocks_conditioning = 9
+num_blocks_extinction = 9
 num_blocks_test = 1
 num_trials_block = {
         "conditioning": {
-            "RENS1": {
-                "num":9,
+            "N": {
+                "num":1,
                 "stimulus": RENS_names[cb%2],
                 "trialtype": RENS_names[cb%2],
                 "outcome": "high",
                 "context": None,
             },
-            "RENS2": {
-                "num":9,
+            "M": {
+                "num":1,
                 "stimulus": RENS_names[cb%2-1],
                 "trialtype": RENS_names[cb%2-1],
                 "outcome": "high",
                 "context": None, 
             },
-            "control": {
-                "num":9,
+            "C": {
+                "num":1,
                 "stimulus": None,
                 "trialtype": "control",
                 "outcome": "med",
-                "context": "control", 
+                "context": "C", 
             },
-            "image": {
-                "num":3,
+            "F": {
+                "num":1,
                 "stimulus": None,
                 "trialtype": "control",
                 "outcome": "high",
-                "context": "image", 
+                "context": "F", 
             },
         },
         "extinction": {
-            "RENS1": {
-                "num":9,
+            "N": {
+                "num":1,
                 "stimulus": RENS_names[cb%2],
                 "trialtype": RENS_names[cb%2],
                 "outcome": "med",
                 "context": None,
             },
-            "RENS2": {
-                "num":9,
+            "M": {
+                "num":1,
                 "stimulus": RENS_names[cb%2-1],
                 "trialtype": RENS_names[cb%2-1],
                 "outcome": "med",
                 "context": "RENS", 
             },
-            "control": {
-                "num":9,
+            "C": {
+                "num":1,
                 "stimulus": None,
                 "trialtype": "control",
                 "outcome": "med",
-                "context": "control", 
+                "context": "C", 
             },
-            "image": {
+            "F": {
+                "num":1,
+                "stimulus": None,
+                "trialtype": "control",
+                "outcome": "med",
+                "context": "F", 
+            },
+            "G": {
                 "num":3,
                 "stimulus": None,
                 "trialtype": "control",
                 "outcome": "high",
-                "context": "image", 
+                "context": "G", 
             },
         },
         "test": {
-            "RENS1": {
+            "N": {
                 "num":6,
                 "stimulus": RENS_names[cb%2],
                 "trialtype": RENS_names[cb%2],
                 "outcome": "med",
                 "context": None,
             },
-            "RENS2": {
+            "M": {
                 "num":6,
                 "stimulus": RENS_names[cb%2-1],
                 "trialtype": RENS_names[cb%2-1],
                 "outcome": "med",
                 "context": None, 
             },
-            "RENS_context": {
+            "X": {
                 "num":6,
                 "stimulus": None,
                 "trialtype": "control",
                 "outcome": "med",
-                "context": "RENS", 
+                "context": "X", 
             },
-            "control": {
+            "C": {
                 "num":6,
                 "stimulus": None,
                 "trialtype": "control",
                 "outcome": "med",
-                "context": "control", 
+                "context": "C", 
             },
-            "image": {
-                "num":2,
+            "F": {
+                "num":6,
                 "stimulus": None,
                 "trialtype": "control",
-                "outcome": "high",
-                "context": "image", 
+                "outcome": "med",
+                "context": "F", 
+            },
+            "G": {
+                "num":6,
+                "stimulus": None,
+                "trialtype": "control",
+                "outcome": "med",
+                "context": "G", 
             },
         }
 }
