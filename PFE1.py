@@ -1,6 +1,6 @@
 # Import packages
 from psychopy import core, event, gui, visual, parallel
-import time
+import time, serial
 import math
 import random
 import csv
@@ -10,13 +10,19 @@ ports_live = None # Set to None if parallel ports not plugged for coding/debuggi
 
 ### Experiment details/parameters
 ## equipment parameters
-port_buffer_duration = 1 #needs about 0.5s buffer for port signal to reset 
+port_buffer_duration = 1000000 # microseconds, giving time to turn on and off trigs  
 pain_response_duration = float("inf")
 response_hold_duration = 1 # How long the rating screen is left on the response (only used for Pain ratings)
 RENS_pulse_int = 0.1 # interval length for RENS on/off signals (e.g. 0.1 = 0.2s per pulse)
 
-# parallel port triggers
-port_address = 0x4fb8
+# serial port triggers
+if ports_live == True:
+    s = serial.Serial('COM3', baudrate=128000, timeout=0.01)
+    s.write('WRITE 0\n')    
+
+elif ports_live == None:
+    s = None #Get from device Manager
+
 pain_trig = 1 #levels and order need to be organised through CHEPS system
 eda_trig = 2 #pin 1 to mark trial information on LabChart
 rens_trig = {"RENS": 128, "control": 0} #Pin 8 in relay box just for the clicking sound
@@ -92,16 +98,6 @@ while True:
 
     # get date and time of experiment start
 datetime = time.strftime("%Y-%m-%d_%H.%M.%S")
-
-# external equipment connected via parallel ports
-stim_trig = {"RENS": 128, "control": 0} #Pin 8 RENS in AD instrument
-
-if ports_live == True:
-    pport = parallel.ParallelPort(address=0x3ff8) #Get from device Manager
-    pport.setData(0)
-    
-elif ports_live == None:
-    pport = None #Get from device Manager
 
 # set up screen
 exp_win = visual.Window(
@@ -279,7 +275,7 @@ def termination_check(): #insert throughout experiment so participants can end a
     keys_pressed = event.getKeys(keyList=["escape"])  # Check for "escape" key during countdown
     if "escape" in keys_pressed:
         if ports_live:
-            pport.setData(0) # Set all pins to 0 to shut off RENS, heat etc.
+            s.write('WRITE 0\n')  # Set all pins to 0 to shut off RENS, heat etc.
         # Save participant information
 
         save_data(trial_order)
@@ -292,10 +288,20 @@ def termination_check(): #insert throughout experiment so participants can end a
 trial_order = []
 
 #### 4 x blocks (2 RENS + low heat, 2 control + high heat)
+num_blocks_familiarisation = 1
 num_blocks_conditioning = 9
 num_blocks_extinction = 9
 num_blocks_test = 6
 num_trials_block = {
+        "familiarisation": {
+            "familiarisation": {
+                "num":10,
+                "stimulus": None,
+                "trialtype": "familiarisation",
+                "outcome": "high",
+                "context": None,
+                }
+            },
         "conditioning": {
             "N+": {
                 "num":1,
@@ -411,9 +417,10 @@ num_trials_block = {
 
 for phase, trials in num_trials_block.items():
     num_blocks = {
+        "familiarisation": num_blocks_familiarisation,
         "conditioning": num_blocks_conditioning,
         "extinction": num_blocks_extinction,
-        "test": num_blocks_test
+        "test": num_blocks_test,
     }[phase]
     
     for block in range(num_blocks):
@@ -495,20 +502,35 @@ instructions_text = {
     "welcome": "Welcome to the experiment! Please read the following instructions carefully.", 
     "RENS_introduction": "This experiment aims to investigate the effects of Transcutaneous Electrical Nerve Stimulation (RENS) on pain sensitivity. Different frequencies of RENS may be able to increase pain sensitivity by amplifying the pain signals that travel up your arm and into your brain.\n\n\
         The RENS itself is not painful, but you will feel a small sensation when it is turned on. Today we are testing the effects of monopolar and bipolar frequencies.",
-    "calibration" : "Firstly, we are going to calibrate the pain intensity for the heats you will receive in the experiment without RENS. As this is a study about pain, we want you to feel a moderate bit of pain, but nothing unbearable. \
-The machine will start low, and then will gradually work up. We want to get to a level which is painful but tolerable, so roughly at a rating of around 7 out of 10, where 1 is not painful and 10 is very painful.\n\n\
-After each heat you will be asked if that level was ok, and you will be given the option to either try the next level or set the current heat level for the experiment. You can always come back down if it becomes too uncomfortable!\n\n\
-Please ask the experimenter if you have any questions at anytime.",
-    "calibration_finish": "Thank you for completing the calibration, your maximum heat intensity has now been set.",
-    "experiment" : "We can now begin the experiment. \n\n\
-You will now receive a series of electrical heats and your task is to rate the intensity of the pain caused by each heat on a rating scale. \
-This rating scale ranges from NOT PAINFUL to VERY PAINFUL. \n\n\
-All heats will be signaled by a 10 second countdown. The heat will occur when an X appears, similarly as in the calibration procedure. \
-On RENS trials, you will be given the choice between receiving monopolar or bipolar frequencies of RENS. Please use your mouse to select your choice. \
-As you are waiting for the heat during the countdown, you will also be asked to rate how painful you expect the following heat to be. After each trial there will be a brief interval to allow you to rest between heats. The task should take roughly 20 minutes. \n\n\
-Please ask the experimenter if you have any questions now before proceeding.",
+        
+    "familiarisation_1": ("Firstly, you will be familiarised with the thermal stimuli. This familiarisation procedure is necessary to ensure that participants are able to tolerate "
+    "the heat pain delivered in this experiment. In the familiarisation procedure, you will experience the thermal stimuli at a range of intensities. The machine will start at a low intensity, and incrementally increase each level. "
+    "After receiving each thermal stimulus, please give a pain rating for that level of heat by clicking and dragging your mouse on a scale from 1 to 10 where 1 is not painful and 10 is very painful. "
+    "The familiarisation procedure will take you through 10 increasing levels of heat intensities."),
+    
+    "familiarisation_2": ("Although the higher levels of heat intensities may be more uncomfortable or painful, please note that "
+    "the maximum level of heat is safe and unlikely to cause you any actual harm. If, however, you find the thermal stimuli intolerable at any stage, please let the experimenter know and we will terminate the experiment immediately. "
+    "This procedure will proceed at your pace, so feel free to take your time to rest between heat levels."),
+
+    "familiarisation_finish": "Thank you for completing the familiarisation protocol. we will now proceed to the next phase of the experiment",
+    
+    "experiment":  "We can now begin the experiment. \n\n\
+        You will now receive a series of heat stimuli and your task is to rate the intensity of the pain caused by each heat stimulus on a rating scale. \
+        This rating scale ranges from NOT PAINFUL to VERY PAINFUL. \n\n\
+        All heat stimuli will be signaled by a 10 second countdown. The heat stimulus will occur when an X appears, similarly as in the familiarisation procedure. \
+        On RENS trials, you will be given the choice between receiving monopolar or bipolar frequencies of TENS. Please use your mouse to select your choice. \
+        As you are waiting for the shock during the countdown, you will also be asked to rate how painful you expect the following heat stimulus to be. After each trial there will be a brief interval to allow you to rest between heat stimuli. \n\n\
+        Please ask the experimenter if you have any questions now before proceeding.",
+
+        
+    "blockrest" : "This is a rest interval. Please wait for the experimenter to adjust the thermode.", 
+    
+    "blockresume" : "Feel free to take as much as rest as necessary before starting the next block.",
+
     "continue" : "\n\nPress spacebar to continue",
+    
     "end" : "This concludes the experiment. Please ask the experimenter to help remove the devices.",
+    
     "termination" : "The experiment has been terminated. Please ask the experimenter to help remove the devices."
 }
 
@@ -559,16 +581,14 @@ def show_fam_trial(current_trial):
     event.waitKeys(keyList = ["space"])
     
     # show fixation stimulus + deliver heat
-    if pport != None:
-        pport.setData(0)
+    if s != None:
+        s.write('WRITE 0\n') 
 
     fix_stim.draw()
     exp_win.flip()
     
-    if pport != None:
-        pport.setData(pain_trig+eda_trig)
-        core.wait(port_buffer_duration)
-        pport.setData(0)
+    if s != None:
+        s.write(('WRITE '+str(pain_trig+eda_trig)+' '+str(port_buffer_duration)+' 0\n').encode('utf-8'))
     
     # Get pain rating
     while fam_rating.getRating() is None: # while mouse unclicked
@@ -592,8 +612,8 @@ def show_fam_trial(current_trial):
     core.wait(familiarisation_iti)
 
 def show_trial(current_trial):
-    if pport != None:
-        pport.setData(0)
+    if s != None:
+        s.write('WRITE 0\n') 
         
     exp_win.flip()
     # Start countdown to heat
@@ -610,11 +630,11 @@ def show_trial(current_trial):
         if current_trial["trialtype"] != "control":
             RENS_pulse_pattern_images[current_trial["trialtype"]].draw()
             RENS_pulse_pattern_text[current_trial["trialtype"]].draw()
-            if pport != None:
+            if s != None:
                 for time, port in RENS_pulse_pattern_trig_list[current_trial["trialtype"]]:
                     termination_check()
                     if abs(countdown_timer.getTime() - math.floor(countdown_timer.getTime()) - time) < timer_precision_range:
-                        pport.setData(port)
+                        s.write(('WRITE '+str(port)).encode('utf-8'))
         if current_trial["context"] != None:
             context_images[current_trial["context"]].draw()
         countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
@@ -625,11 +645,11 @@ def show_trial(current_trial):
         if current_trial["trialtype"] != "control":
             RENS_pulse_pattern_images[current_trial["trialtype"]].draw()
             RENS_pulse_pattern_text[current_trial["trialtype"]].draw()
-            if pport != None:
+            if s != None:
                 for time, port in RENS_pulse_pattern_trig_list[current_trial["trialtype"]]:
                     termination_check()
                     if abs(countdown_timer.getTime() - math.floor(countdown_timer.getTime()) - time) < timer_precision_range:
-                        pport.setData(port)
+                         s.write(('WRITE '+str(port)).encode('utf-8'))
         if current_trial["context"] != None:
             context_images[current_trial["context"]].draw()
         countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
@@ -643,18 +663,11 @@ def show_trial(current_trial):
     exp_rating.reset() #resets the expectancy slider for subsequent trials
         
     # deliver heat
-    if pport != None:
-        pport.setData(0)
     fix_stim.draw()
     exp_win.flip()
     
-    if pport != None:
-        pport.setData(pain_trig[current_trial["outcome"]]+eda_trig)
-        
-    wait(port_buffer_duration)
-
-    if pport != None:
-        pport.setData(0)
+    if s != None:
+        s.write(('WRITE '+str(pain_trig+eda_trig)+' '+str(port_buffer_duration)+' 0\n').encode('utf-8'))
 
     # Get pain rating
     while pain_rating.getRating() is None: # while mouse unclicked
@@ -685,22 +698,24 @@ exp_finish = False
 while not exp_finish:
     termination_check()
     # # display welcome and familiarisation instructions
-    # instruction_trial(instructions_text["welcome"],3)
-    # instruction_trial(instructions_text["RENS_introduction"],3)
-    # instruction_trial(instructions_text["calibration"],8)
+    instruction_trial(instructions_text["welcome"],3)
+    instruction_trial(instructions_text["RENS_introduction"],3)
+    instruction_trial(instructions_text["familiarisation_1"],8)
+    instruction_trial(instructions_text["familiarisation_2"],8)
 
+    for trial in list(filter(lambda trial: trial['phase'] == "familiarisation", trial_order)):
+        show_fam_trial(trial)
+    instruction_trial(instructions_text["familiarisation_finish"],2)
 
     
-    # instruction_trial(instructions_text["calibration_finish"],3)
-    
-    # #display main experiment phase
-    # instruction_trial(instructions_text["experiment"],10)
+    #display main experiment phase
+    instruction_trial(instructions_text["experiment"],10)
     # for trial in trial_order:
     for trial in [t for t in trial_order if t["phase"] == "test"]: #for testing extinction
         show_trial(trial)
         
-    if pport != None:
-        pport.setData(0) # Set all pins to 0 to shut off RENS, heat etc.    
+    if s != None:
+        s.write('WRITE 0\n')  # Set all pins to 0 to shut off RENS, heat etc.    
     # # save trial data
     save_data(trial_order)
     exit_screen(instructions_text["end"])
