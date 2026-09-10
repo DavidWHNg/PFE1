@@ -1,5 +1,5 @@
 # Import packages
-from psychopy import core, event, gui, visual, parallel
+from psychopy import core, event, visual
 import time, serial
 import math
 import random
@@ -23,8 +23,13 @@ if ports_live == True:
 elif ports_live == None:
     s = None #Get from device Manager
 
-pain_trig = 1 #levels and order need to be organised through CHEPS system
 eda_trig = 2 #pin 1 to mark trial information on LabChart
+shock_levels = 10
+
+shock_trig = {"high": 1, 
+              "low": 11, 
+              "medium": 21} #byte values start on lowest levels
+
 rens_trig = {"RENS": 128, "control": 0} #Pin 8 in relay box just for the clicking sound
 
 ## within experiment parameters
@@ -35,7 +40,6 @@ info_order = ["PID"]
 
 # iti_range = [6,8]
 iti = 6
-familiarisation_iti = 3
 
 rating_scale_pos = (0,-350)
 rating_text_pos = (0,-250) 
@@ -275,7 +279,7 @@ def termination_check(): #insert throughout experiment so participants can end a
     keys_pressed = event.getKeys(keyList=["escape"])  # Check for "escape" key during countdown
     if "escape" in keys_pressed:
         if ports_live:
-            s.write('WRITE 0\n')  # Set all pins to 0 to shut off RENS, heat etc.
+            s.write('WRITE 0\n')  # Set all pins to 0 to shut off RENS, shock etc.
         # Save participant information
 
         save_data(trial_order)
@@ -287,17 +291,17 @@ def termination_check(): #insert throughout experiment so participants can end a
 # Number of trials
 trial_order = []
 
-#### 4 x blocks (2 RENS + low heat, 2 control + high heat)
-num_blocks_familiarisation = 1
+#### 4 x blocks (2 RENS + low shock, 2 control + high shock)
+num_blocks_calibration = 1
 num_blocks_conditioning = 9
 num_blocks_extinction = 9
 num_blocks_test = 6
 num_trials_block = {
-        "familiarisation": {
-            "familiarisation": {
+        "calibration": {
+            "calibration": {
                 "num":10,
                 "stimulus": None,
-                "trialtype": "familiarisation",
+                "trialtype": "calibration",
                 "outcome": "high",
                 "context": None,
                 }
@@ -417,7 +421,7 @@ num_trials_block = {
 
 for phase, trials in num_trials_block.items():
     num_blocks = {
-        "familiarisation": num_blocks_familiarisation,
+        "calibration": num_blocks_calibration,
         "conditioning": num_blocks_conditioning,
         "extinction": num_blocks_extinction,
         "test": num_blocks_test,
@@ -452,8 +456,8 @@ for trialnum, trial in enumerate(trial_order, start=1):
     
 #Test questions
 # #Test questions
-rating_stim = { "familiarisation": visual.Slider(exp_win,
-                                    pos = rating_scale_pos,
+rating_stim = { "calibration": visual.Slider(win,
+                                    pos = (0,-200),
                                     ticks=[0,50,100],
                                     labels=(1,5,10),
                                     granularity=0.1,
@@ -478,12 +482,20 @@ rating_stim = { "familiarisation": visual.Slider(exp_win,
                                     size=(600,60),
                                     style=["rating"],
                                     autoLog = False,
+                                    labelHeight = 30),
+                "anxiety": visual.Slider(exp_win,
+                                    pos = rating_scale_pos,
+                                    ticks=[0,100],
+                                    labels=("Not anxious","Very anxious"),
+                                    granularity=0.1,
+                                    size=(600,60),
+                                    style=["rating"],
+                                    autoLog = False,
                                     labelHeight = 30)}
 
-
-rating_stim["familiarisation"].marker.size = (30,30)
-rating_stim["familiarisation"].marker.color = "yellow"
-rating_stim["familiarisation"].validArea.size = (660,100)
+rating_stim["calibration"].marker.size = (30,30)
+rating_stim["calibration"].marker.color = "yellow"
+rating_stim["calibration"].validArea.size = (660,100)
 
 rating_stim["pain"].marker.size = (30,30)
 rating_stim["pain"].marker.color = "yellow"
@@ -493,33 +505,31 @@ rating_stim["expectancy"].marker.size = (30,30)
 rating_stim["expectancy"].marker.color = "yellow"
 rating_stim["expectancy"].validArea.size = (660,100)
 
+rating_stim["anxiety"].marker.size = (30,30)
+rating_stim["anxiety"].marker.color = "yellow"
+rating_stim["anxiety"].validArea.size = (660,100)
+
 pain_rating = rating_stim["pain"]
+calib_rating = rating_stim["calibration"]
 exp_rating = rating_stim["expectancy"]
-fam_rating = rating_stim["familiarisation"]
+anx_rating = rating_stim["anxiety"]
 
 # text stimuli
 instructions_text = {
     "welcome": "Welcome to the experiment! Please read the following instructions carefully.", 
     "RENS_introduction": "This experiment aims to investigate the effects of Transcutaneous Electrical Nerve Stimulation (RENS) on pain sensitivity. Different frequencies of RENS may be able to increase pain sensitivity by amplifying the pain signals that travel up your arm and into your brain.\n\n\
         The RENS itself is not painful, but you will feel a small sensation when it is turned on. Today we are testing the effects of monopolar and bipolar frequencies.",
-        
-    "familiarisation_1": ("Firstly, you will be familiarised with the thermal stimuli. This familiarisation procedure is necessary to ensure that participants are able to tolerate "
-    "the heat pain delivered in this experiment. In the familiarisation procedure, you will experience the thermal stimuli at a range of intensities. The machine will start at a low intensity, and incrementally increase each level. "
-    "After receiving each thermal stimulus, please give a pain rating for that level of heat by clicking and dragging your mouse on a scale from 1 to 10 where 1 is not painful and 10 is very painful. "
-    "The familiarisation procedure will take you through 10 increasing levels of heat intensities."),
-    
-    "familiarisation_2": ("Although the higher levels of heat intensities may be more uncomfortable or painful, please note that "
-    "the maximum level of heat is safe and unlikely to cause you any actual harm. If, however, you find the thermal stimuli intolerable at any stage, please let the experimenter know and we will terminate the experiment immediately. "
-    "This procedure will proceed at your pace, so feel free to take your time to rest between heat levels."),
-
-    "familiarisation_finish": "Thank you for completing the familiarisation protocol. we will now proceed to the next phase of the experiment",
-    
+    "calibration" : "Firstly, we are going to calibrate the pain intensity for the shocks you will receive in the experiment without TENS. As this is a study about pain, we want you to feel a moderate bit of pain, but nothing unbearable. \
+        The machine will start low, and then will gradually work up. We want to get to a level which is painful but tolerable, so roughly at a rating of around 7 out of 10, where 1 is not painful and 10 is very painful.\n\n\
+        After each shock you will be asked if that level was ok, and you will be given the option to either try the next level or set the current shock level for the experiment. You can always come back down if it becomes too uncomfortable!\n\n\
+        Please ask the experimenter if you have any questions at anytime.",
+    "calibration_finish": "Thank you for completing the calibration, your maximum shock intensity has now been set.",
     "experiment":  "We can now begin the experiment. \n\n\
-        You will now receive a series of heat stimuli and your task is to rate the intensity of the pain caused by each heat stimulus on a rating scale. \
+        You will now receive a series of shocks and your task is to rate the intensity of the pain caused by each shocks on a rating scale. \
         This rating scale ranges from NOT PAINFUL to VERY PAINFUL. \n\n\
-        All heat stimuli will be signaled by a 10 second countdown. The heat stimulus will occur when an X appears, similarly as in the familiarisation procedure. \
+        All shocks will be signaled by a 10 second countdown. The shocks will occur when an X appears, similarly as in the calibration procedure. \
         On RENS trials, you will be given the choice between receiving monopolar or bipolar frequencies of TENS. Please use your mouse to select your choice. \
-        As you are waiting for the shock during the countdown, you will also be asked to rate how painful you expect the following heat stimulus to be. After each trial there will be a brief interval to allow you to rest between heat stimuli. \n\n\
+        As you are waiting for the shock during the countdown, you will also be asked to rate how painful you expect the following shock to be. After each trial there will be a brief interval to allow you to rest between shocks. \n\n\
         Please ask the experimenter if you have any questions now before proceeding.",
 
         
@@ -537,13 +547,13 @@ instructions_text = {
 cue_demo_text = "When you are completely relaxed, press any key to start the next block..."
 
 response_instructions = {
-    "Pain": "How painful was the heat?",
-    "Expectancy": "How painful do you expect the next heat to be?",
-    "heat": "Press spacebar to activate the heat",
-    "heat_check": "Would you like to try the previous level of heat again?",
-    "Check": "Please indicate whether you would like to try the next level of heat, stay at this level, or go back to the previous level for the experiment.",
-    "Check_lvl1": "Please indicate whether you would like to try the next level of heat or stay at this level",
-    "Check_max": "Note that this is the maximum level of heat.\n\n\
+    "Pain": "How painful was the shock?",
+    "Expectancy": "How painful do you expect the next shock to be?",
+    "shock": "Press spacebar to activate the shock",
+    "shock_check": "Would you like to try the previous level of shock again?",
+    "Check": "Please indicate whether you would like to try the next level of shock, stay at this level, or go back to the previous level for the experiment.",
+    "Check_lvl1": "Please indicate whether you would like to try the next level of shock or stay at this level",
+    "Check_max": "Note that this is the maximum level of shock.\n\n\
  Would you like to stay at this level or go down a level?",
     "Choice": "Please choose which frequency of RENS you want to receive on this trial."
                          }
@@ -559,6 +569,31 @@ exp_text = visual.TextStim(exp_win,
             height = 35,
             pos = (0,-100)
             ) 
+
+
+buttons = {
+    "calibration": {
+            "Next": visual.Rect(win,
+                        width=300,
+                        height=80,
+                        fillColor="black",
+                        lineColor="white",
+                        pos=(400, -300)),
+            "Stay": visual.Rect(win,
+                                width=300,
+                                height=80,
+                                fillColor="black",
+                                lineColor="white",
+                                pos=(0, -300)),
+            "Previous": visual.Rect(win,
+                            width=300,
+                            height=80,
+                            fillColor="black",
+                            lineColor="white",
+                            pos=(-400, -300))
+    }
+}
+
 # pre-draw countdown stimuli (numbers 10-1)
 countdown_text = {}
 for i in range(0,11):
@@ -568,55 +603,151 @@ for i in range(0,11):
                             text=str(i))
 
 #### Make trial functions
-def show_fam_trial(current_trial):
+
+calib_finish = False
+
+    # calibration trials
+def show_calib_trial(trial_order):
+    trial_index = 0
+    global calib_finish
+    previous_trial = False
     termination_check()
-    # Wait for participant to ready up for heat
-    visual.TextStim(exp_win,
-        text=response_instructions["familiarisation"],
-        height = 35,
-        pos = (0,0),
-        wrapWidth= 800
-        ).draw()
-    exp_win.flip()
-    event.waitKeys(keyList = ["space"])
-    
-    # show fixation stimulus + deliver heat
-    if s != None:
-        s.write('WRITE 0\n') 
 
-    fix_stim.draw()
-    exp_win.flip()
-    
-    if s != None:
-        s.write(('WRITE '+str(pain_trig+eda_trig)+' '+str(port_buffer_duration)+' 0\n').encode('utf-8'))
-    
-    # Get pain rating
-    while fam_rating.getRating() is None: # while mouse unclicked
-        termination_check()
-        pain_text.draw()
-        fam_rating.draw()
+    while 0 <= trial_index and not calib_finish:
+        current_trial = trial_order[trial_index]
+        if previous_trial == True:
+            visual.TextStim(exp_win,
+                text=response_instructions["Shock_check"],
+                height = 35,
+                pos = (0,0),
+                wrapWidth= 800
+                ).draw()
+            buttons_keylist = ["Yes", "No"]
+            for button_name in buttons_keylist:
+                buttons["confirm"][button_name].draw()
+                button_text["confirm"][button_name].draw()
+            mouse = event.Mouse()
+            mouse.clickReset()
+            exp_win.flip()
+            
+            choice_finish = False
+            termination_check()
+            mouse.clickReset()
+            
+            while choice_finish == False:
+                for button_name in buttons_keylist:
+                        if mouse.isPressedIn(buttons["confirm"][button_name]):
+                            if button_name == "Yes":
+                                choice_finish = True
+                                previous_trial = False
+                                wait(iti)
+                                break
+                            elif button_name == "No":
+                                choice_finish = True
+                                calib_finish = True
+                                wait(iti)
+                                return
+            
+        # Wait for participant to ready up for shock
+        visual.TextStim(exp_win,
+            text=response_instructions["Shock"],
+            height = 35,
+            pos = (0,0),
+            wrapWidth= 800
+            ).draw()
+        
         exp_win.flip()
-         
-    pain_response_end_time = core.getTime() + response_hold_duration # amount of time for participants to adjust slider after making a response
-    
-    while core.getTime() < pain_response_end_time:
-        termination_check()
-        pain_text.draw()
-        fam_rating.draw()
-        exp_win.flip()
+        event.waitKeys(keyList = ["space"])
+        
+        # show fixation stimulus + deliver shock
+        if s != None:
+            s.write('WRITE 0\n') 
 
-    current_trial["pain_response"] = fam_rating.getRating()
-    fam_rating.reset()
+        fix_stim.draw()
+        exp_win.flip()
+        
+        if s != None:
+            s.write(('WRITE '+str(shock_trig["high"])+' '+str(port_buffer_duration)+' 0\n').encode('utf-8'))
+        
+        # Get pain rating
+        while calib_rating.getRating() is None: # while mouse unclicked
+            termination_check()
+            pain_text.draw()
+            calib_rating.draw()
+            exp_win.flip()
+            
+        pain_response_end_time = core.getTime() + response_hold_duration # amount of time for participants to adjust slider after making a response
+        
+        while core.getTime() < pain_response_end_time:
+            termination_check()
+            pain_text.draw()
+            calib_rating.draw()
+            exp_win.flip()
+
+        current_trial["pain_response"] = calib_rating.getRating()
+        calib_rating.reset()
+        exp_win.flip()
+        wait(iti)
+
+        # Feedback text
+        if shock_trig["high"] == 1:
+            text = response_instructions["Check_lvl1"]
+        elif shock_trig["high"] < 10:
+            text = response_instructions["Check"]
+        else:
+            text = response_instructions["Check_max"]
+
+        visual.TextStim(win, text=text, height=35, pos=(0, 0)).draw()
+
+        # Draw buttons and text
+        if shock_trig["high"] == 1:
+            buttons_keylist = ["Next", "Stay"]
+        elif shock_trig["high"] == 10:
+            buttons_keylist = ["Previous", "Stay"]
+        else:
+            buttons_keylist = buttons["calibration"].keys()
+
+        for button_name in buttons_keylist:
+            buttons["calibration"][button_name].draw()
+            button_text["calibration"][button_name].draw()
+
+        exp_win.flip()
+        
+        # Wait for a mouse click
+        trial_finish = False
+        mouse = event.Mouse()
+        mouse.clickReset()
+        
+        while trial_finish == False:
+            for button_name, button_rect in buttons["calibration"].items():
+                if mouse.isPressedIn(button_rect):
+                    if button_name == "Next":
+                        shock_trig["high"] += 1
+                        shock_trig["low"] += 1
+                        shock_trig["medium"] += 1
+                        trial_index += 1
+                        
+                    elif button_name == "Stay":
+                        calib_finish = True
+                        
+                    elif button_name == "Previous":
+                        shock_trig["high"] -= 1
+                        shock_trig["low"] -= 1
+                        shock_trig["medium"] -= 1
+                        trial_index -= 1
+                        previous_trial = True
     
-    exp_win.flip()
-    core.wait(familiarisation_iti)
+                    trial_finish = True
+                    mouse.clickReset()                        
+        exp_win.flip()
+        wait(iti)
 
 def show_trial(current_trial):
     if s != None:
         s.write('WRITE 0\n') 
         
     exp_win.flip()
-    # Start countdown to heat
+    # Start countdown to shock
     # Make a count-down screen
     countdown_timer = core.CountdownTimer(10)  # Set the initial countdown time to 10 seconds
   
@@ -662,7 +793,7 @@ def show_trial(current_trial):
     current_trial["exp_response"] = exp_rating.getRating() #saves the expectancy response for that trial
     exp_rating.reset() #resets the expectancy slider for subsequent trials
         
-    # deliver heat
+    # deliver shock
     fix_stim.draw()
     exp_win.flip()
     
@@ -697,17 +828,15 @@ exp_finish = False
 # Run experiment
 while not exp_finish:
     termination_check()
-    # # display welcome and familiarisation instructions
+    # # display welcome and calibration instructions
     instruction_trial(instructions_text["welcome"],3)
     instruction_trial(instructions_text["RENS_introduction"],3)
-    instruction_trial(instructions_text["familiarisation_1"],8)
-    instruction_trial(instructions_text["familiarisation_2"],8)
+    instruction_trial(instructions_text["calibration"],8)
 
-    for trial in list(filter(lambda trial: trial['phase'] == "familiarisation", trial_order)):
-        show_fam_trial(trial)
-    instruction_trial(instructions_text["familiarisation_finish"],2)
+    for trial in list(filter(lambda trial: trial['phase'] == "calibration", trial_order)):
+        show_calib_trial(trial)
+    instruction_trial(instructions_text["calibration_finish"],2)
 
-    
     #display main experiment phase
     instruction_trial(instructions_text["experiment"],10)
     # for trial in trial_order:
@@ -715,7 +844,7 @@ while not exp_finish:
         show_trial(trial)
         
     if s != None:
-        s.write('WRITE 0\n')  # Set all pins to 0 to shut off RENS, heat etc.    
+        s.write('WRITE 0\n')  # Set all pins to 0 to shut off RENS, shock etc.    
     # # save trial data
     save_data(trial_order)
     exit_screen(instructions_text["end"])
