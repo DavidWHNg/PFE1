@@ -23,7 +23,6 @@ if ports_live == True:
 elif ports_live == None:
     s = None #Get from device Manager
 
-eda_trig = 2 #pin 1 to mark trial information on LabChart
 shock_levels = 10
 
 shock_trig = {"high": 1, 
@@ -39,7 +38,8 @@ P_info = {"PID": "",
 info_order = ["PID"]
 
 # iti_range = [6,8]
-iti = 6
+trial_iti = 6
+instruction_iti = 3
 
 rating_scale_pos = (0,-350)
 rating_text_pos = (0,-250) 
@@ -56,6 +56,8 @@ context_image_size = (1920, 1080)
 context_image_pos = (0,0)
 
 timer_precision_range = 0.01 # pulses should be accurate to within 10 milliseconds
+
+midtrial_rating_list = ["anxiety","expectancy"]
 
 # within experiment parameters
 P_info = {"PID": ""}
@@ -92,8 +94,7 @@ while True:
         else:
             cb = int(P_info["PID"]) % 8
             
-            # cb = 0: monopolar = pause, bipolar = constant
-            # cb = 1: monopolar = constant, bipolar = pause
+
             
             break  # Exit the loop if the participant ID is valid
     except KeyboardInterrupt:
@@ -111,6 +112,8 @@ exp_win = visual.Window(
     blendMode="avg", useFBO=True,
     units="pix")
 
+mouse = event.Mouse(visible=True)
+
 # fixation stimulus
 fix_stim = visual.TextStim(exp_win,
                             text = "x",
@@ -123,8 +126,7 @@ RENS_names = ["monopolar", "bipolar"]
 
 RENS_pulse_pattern_names = {
     "monopolar": "constant",
-    "bipolar": "pause",
-    "compound": "compound"
+    "bipolar": "pause"
 }
 
 RENS_pulse_pattern_images = {"monopolar": visual.ImageStim(exp_win,
@@ -137,11 +139,6 @@ RENS_pulse_pattern_images = {"monopolar": visual.ImageStim(exp_win,
                                     size = RENS_image_size,
                                     pos = RENS_image_pos
                             ),
-                            "compound": visual.ImageStim(exp_win,
-                                    image=os.path.join(stimulus_folder, RENS_pulse_pattern_names["compound"]+".png"),
-                                    size = RENS_image_size,
-                                    pos = RENS_image_pos
-                            )
 }
 
 RENS_pulse_pattern_trig_list = {"pause": [(0.0, rens_trig), (0.1, 0), # 3 rapid pulses followed by pause, first number specifies time in seconds, second number port send value
@@ -178,10 +175,10 @@ RENS_pulse_pattern_text = {
 }
 context_trial_list = ["C","X","F","G"]
 context_image_names = {
-    context_trial_list[cb%4]: "forest",
+    context_trial_list[cb%4]: "field",
     context_trial_list[cb%4-1]: "mountain",
-    context_trial_list[cb%4-2]: "river",
-    context_trial_list[cb%4-3]: "plains"}
+    context_trial_list[cb%4-2]: "forest",
+    context_trial_list[cb%4-3]: "beach"}
 
 context_images = {"C": visual.ImageStim(exp_win,
                                     image=os.path.join(stimulus_folder, context_image_names["C"]+".jpg"),
@@ -240,7 +237,7 @@ def instruction_trial(instructions,holdtime):
     event.waitKeys(keyList=["space"])
     exp_win.flip()
     
-    wait(iti)
+    wait(instruction_iti)
     
 # Create functions
     # Save responses to a CSV file
@@ -321,7 +318,7 @@ num_trials_block = {
                 "outcome": "high",
                 "context": None, 
             },
-            "C+": {
+            "C-": {
                 "num":1,
                 "stimulus": None,
                 "trialtype": "control",
@@ -342,14 +339,14 @@ num_trials_block = {
                 "stimulus": RENS_names[cb%2],
                 "trialtype": RENS_names[cb%2],
                 "outcome": "med",
-                "context": None,
+                "context": "X",
             },
             "M-": {
                 "num":1,
                 "stimulus": RENS_names[cb%2-1],
                 "trialtype": RENS_names[cb%2-1],
                 "outcome": "med",
-                "context": "RENS", 
+                "context": None, 
             },
             "C-": {
                 "num":1,
@@ -440,7 +437,8 @@ for phase, trials in num_trials_block.items():
                     "context": trial_info["context"],
                     "context_stim": context_image_names.get(trial_info["context"]),
                     "outcome": trial_info["outcome"],
-                    "exp_response": None,
+                    "expectancy_response": None,
+                    "anxiety_response": None,
                     "pain_response": None
                 }
                 trial["blocknum"] = block + 1
@@ -456,81 +454,68 @@ for trialnum, trial in enumerate(trial_order, start=1):
     
 #Test questions
 # #Test questions
-rating_stim = { "calibration": visual.Slider(win,
-                                    pos = (0,-200),
-                                    ticks=[0,50,100],
-                                    labels=(1,5,10),
-                                    granularity=0.1,
-                                    size=(600,60),
-                                    style=["rating"],
-                                    autoLog = False,
-                                    labelHeight = 30),
-               "pain": visual.Slider(exp_win,
-                                    pos = rating_scale_pos,
-                                    ticks=[0,100],
-                                    labels=("Not painful","Very painful"),
-                                    granularity=0.1,
-                                    size=(600,60),
-                                    style=["rating"],
-                                    autoLog = False,
-                                    labelHeight = 30),
-                "expectancy": visual.Slider(exp_win,
-                                    pos = rating_scale_pos,
-                                    ticks=[0,100],
-                                    labels=("Not painful","Very painful"),
-                                    granularity=0.1,
-                                    size=(600,60),
-                                    style=["rating"],
-                                    autoLog = False,
-                                    labelHeight = 30),
-                "anxiety": visual.Slider(exp_win,
-                                    pos = rating_scale_pos,
-                                    ticks=[0,100],
-                                    labels=("Not anxious","Very anxious"),
-                                    granularity=0.1,
-                                    size=(600,60),
-                                    style=["rating"],
-                                    autoLog = False,
-                                    labelHeight = 30)}
+# Rating stim details
+rating_list = {
+    "calibration": {
+        "pos": (0, -200),
+        "ticks": [0, 50, 100],
+        "labels": (1, 5, 10),
+    },
+    "pain": {
+        "pos": rating_scale_pos,
+        "ticks": [0, 100],
+        "labels": ("Not painful", "Very painful"),
+    },
+    "expectancy": {
+        "pos": rating_scale_pos,
+        "ticks": [0, 100],
+        "labels": ("Not painful", "Very painful"),
+    },
+    "anxiety": {
+        "pos": rating_scale_pos,
+        "ticks": [0, 100],
+        "labels": ("Not at all", "Very anxious"),
+    },
+}
 
-rating_stim["calibration"].marker.size = (30,30)
-rating_stim["calibration"].marker.color = "yellow"
-rating_stim["calibration"].validArea.size = (660,100)
+rating_stim = {
+    name: visual.Slider(
+        exp_win,
+        pos=spec["pos"],
+        ticks=spec["ticks"],
+        labels=spec["labels"],
+        granularity=0.1,
+        size=(600, 60),
+        style=["rating"],
+        autoLog=False,
+        labelHeight=30,
+    )
+    for name, spec in rating_list.items()
+}
 
-rating_stim["pain"].marker.size = (30,30)
-rating_stim["pain"].marker.color = "yellow"
-rating_stim["pain"].validArea.size = (660,100)
+for slider in rating_stim.values():
+    slider.marker.size = (30, 30)
+    slider.marker.color = "yellow"
+    slider.validArea.size = (660, 100)
 
-rating_stim["expectancy"].marker.size = (30,30)
-rating_stim["expectancy"].marker.color = "yellow"
-rating_stim["expectancy"].validArea.size = (660,100)
-
-rating_stim["anxiety"].marker.size = (30,30)
-rating_stim["anxiety"].marker.color = "yellow"
-rating_stim["anxiety"].validArea.size = (660,100)
-
-pain_rating = rating_stim["pain"]
-calib_rating = rating_stim["calibration"]
-exp_rating = rating_stim["expectancy"]
-anx_rating = rating_stim["anxiety"]
 
 # text stimuli
 instructions_text = {
     "welcome": "Welcome to the experiment! Please read the following instructions carefully.", 
-    "RENS_introduction": "This experiment aims to investigate the effects of Transcutaneous Electrical Nerve Stimulation (RENS) on pain sensitivity. Different frequencies of RENS may be able to increase pain sensitivity by amplifying the pain signals that travel up your arm and into your brain.\n\n\
-        The RENS itself is not painful, but you will feel a small sensation when it is turned on. Today we are testing the effects of monopolar and bipolar frequencies.",
-    "calibration" : "Firstly, we are going to calibrate the pain intensity for the shocks you will receive in the experiment without TENS. As this is a study about pain, we want you to feel a moderate bit of pain, but nothing unbearable. \
-        The machine will start low, and then will gradually work up. We want to get to a level which is painful but tolerable, so roughly at a rating of around 7 out of 10, where 1 is not painful and 10 is very painful.\n\n\
-        After each shock you will be asked if that level was ok, and you will be given the option to either try the next level or set the current shock level for the experiment. You can always come back down if it becomes too uncomfortable!\n\n\
-        Please ask the experimenter if you have any questions at anytime.",
+    "RENS_introduction": "This experiment aims to investigate the effects of Repetitive Electrical Nerve Stimulation (RENS) on pain sensitivity. Different frequencies of RENS may be able to increase pain sensitivity by amplifying the pain signals that travel up your arm and into your brain. \n\n"
+        "The RENS itself is not painful, but you will feel a small sensation when it is turned on. Today we are testing the effects of monopolar and bipolar frequencies.",
+    "calibration" : "Firstly, we are going to calibrate the pain intensity for the shocks you will receive in the experiment without RENS. As this is a study about pain, we want you to feel a moderate bit of pain, but nothing unbearable. "
+        "The machine will start low, and then will gradually work up. We want to get to a level which is painful but tolerable, so roughly at a rating of around 7 out of 10, where 1 is not painful and 10 is very painful. \n\n"
+        "After each shock you will be asked if that level was ok, and you will be given the option to either try the next level or set the current shock level for the experiment. You can always come back down if it becomes too uncomfortable!\n\n "
+        "Please ask the experimenter if you have any questions at anytime. ",
     "calibration_finish": "Thank you for completing the calibration, your maximum shock intensity has now been set.",
-    "experiment":  "We can now begin the experiment. \n\n\
-        You will now receive a series of shocks and your task is to rate the intensity of the pain caused by each shocks on a rating scale. \
-        This rating scale ranges from NOT PAINFUL to VERY PAINFUL. \n\n\
-        All shocks will be signaled by a 10 second countdown. The shocks will occur when an X appears, similarly as in the calibration procedure. \
-        On RENS trials, you will be given the choice between receiving monopolar or bipolar frequencies of TENS. Please use your mouse to select your choice. \
-        As you are waiting for the shock during the countdown, you will also be asked to rate how painful you expect the following shock to be. After each trial there will be a brief interval to allow you to rest between shocks. \n\n\
-        Please ask the experimenter if you have any questions now before proceeding.",
+    "experiment":  "We can now begin the experiment. \n\n"
+        "You will now receive a series of shocks and your task is to rate the intensity of the pain caused by each shocks on a rating scale. "
+        "This rating scale ranges from NOT PAINFUL to VERY PAINFUL. \n\n"
+        "All shocks will be signaled by a 10 second countdown. The shocks will occur when an X appears, similarly as in the calibration procedure. "
+        "On RENS trials, you will be given the choice between receiving monopolar or bipolar frequencies of RENS. Please use your mouse to select your choice. "
+        "As you are waiting for the shock during the countdown, you will also be asked to rate how painful you expect the following shock to be. After each trial there will be a brief interval to allow you to rest between shocks. \n\n"
+        "Please ask the experimenter if you have any questions now before proceeding.",
 
         
     "blockrest" : "This is a rest interval. Please wait for the experimenter to adjust the thermode.", 
@@ -547,51 +532,95 @@ instructions_text = {
 cue_demo_text = "When you are completely relaxed, press any key to start the next block..."
 
 response_instructions = {
-    "Pain": "How painful was the shock?",
-    "Expectancy": "How painful do you expect the next shock to be?",
+    "pain": "How painful was the shock?",
+    "expectancy": "How painful do you expect the next shock to be?",
+    "anxiety": "How anxious are you about the next shock?",
     "shock": "Press spacebar to activate the shock",
     "shock_check": "Would you like to try the previous level of shock again?",
     "Check": "Please indicate whether you would like to try the next level of shock, stay at this level, or go back to the previous level for the experiment.",
     "Check_lvl1": "Please indicate whether you would like to try the next level of shock or stay at this level",
-    "Check_max": "Note that this is the maximum level of shock.\n\n\
- Would you like to stay at this level or go down a level?",
+    "Check_max": "Note that this is the maximum level of shock.\n\n"
+        "Would you like to stay at this level or go down a level?",
     "Choice": "Please choose which frequency of RENS you want to receive on this trial."
                          }
 
-pain_text = visual.TextStim(exp_win,
-            text=response_instructions["Pain"],
-            height = 35,
-            pos = (0,-100),
-            )
+# Rating instruction text
+rating_text_list = {
+    "pain": "pain",
+    "expectancy": "expectancy",
+    "anxiety": "anxiety",
+}
 
-exp_text = visual.TextStim(exp_win,
-            text=response_instructions["Expectancy"],
-            height = 35,
-            pos = (0,-100)
-            ) 
+rating_text = {
+    name: visual.TextStim(
+        exp_win,
+        text=response_instructions[instruction],
+        height=35,
+        pos=(0, -100),
+    )
+    for name, instruction in rating_text_list.items()
+}
 
-
-buttons = {
+# Define button_text and buttons dictionaries
+# Button specifications
+button_specs = {
     "calibration": {
-            "Next": visual.Rect(win,
-                        width=300,
-                        height=80,
-                        fillColor="black",
-                        lineColor="white",
-                        pos=(400, -300)),
-            "Stay": visual.Rect(win,
-                                width=300,
-                                height=80,
-                                fillColor="black",
-                                lineColor="white",
-                                pos=(0, -300)),
-            "Previous": visual.Rect(win,
-                            width=300,
-                            height=80,
-                            fillColor="black",
-                            lineColor="white",
-                            pos=(-400, -300))
+        "Next": {
+            "text": "Try the next shock level",
+            "pos": (400, -300),
+        },
+        "Stay": {
+            "text": "Stay at this shock level",
+            "pos": (0, -300),
+        },
+        "Previous": {
+            "text": "Set the previous shock level",
+            "pos": (-400, -300),
+        },
+    },
+    "confirm": {
+        "Yes": {
+            "text": "Yes",
+            "pos": (400, -300),
+        },
+        "No": {
+            "text": "No",
+            "pos": (-400, -300),
+        },
+    },
+}
+
+
+# Create button text
+button_text_list = {
+    group: {
+        button: visual.TextStim(
+            exp_win,
+            text=spec["text"],
+            color="white",
+            height=25,
+            pos=spec["pos"],
+            wrapWidth=300,
+        )
+        for button, spec in button_type.items()
     }
+    for group, button_type in button_specs.items()
+}
+
+# Create button rectangles
+button_rect_list = {
+    group: {
+        button: visual.Rect(
+            exp_win,
+            width=300,
+            height=80,
+            fillColor="black",
+            lineColor="white",
+            pos=spec["pos"],
+        )
+        for button, spec in button_type.items()
+    }
+    for group, button_type in button_specs.items()
 }
 
 # pre-draw countdown stimuli (numbers 10-1)
@@ -613,44 +642,46 @@ def show_calib_trial(trial_order):
     previous_trial = False
     termination_check()
 
-    while 0 <= trial_index and not calib_finish:
+    while 0 <= trial_index < len(trial_order) and not calib_finish:
         current_trial = trial_order[trial_index]
         if previous_trial == True:
+            termination_check()
             visual.TextStim(exp_win,
-                text=response_instructions["Shock_check"],
+                text=response_instructions["shock_check"],
                 height = 35,
                 pos = (0,0),
                 wrapWidth= 800
                 ).draw()
-            buttons_keylist = ["Yes", "No"]
-            for button_name in buttons_keylist:
-                buttons["confirm"][button_name].draw()
-                button_text["confirm"][button_name].draw()
-            mouse = event.Mouse()
-            mouse.clickReset()
-            exp_win.flip()
             
+            buttons_keylist = button_rect_list["confirm"].keys()
+            for button_name in buttons_keylist:
+                button_rect_list["confirm"][button_name].draw()
+                button_text_list["confirm"][button_name].draw()
+            exp_win.flip()
+
+            #wait for mouse click
             choice_finish = False
-            termination_check()
-            mouse.clickReset()
+            mouse.clickReset()  
             
             while choice_finish == False:
-                for button_name in buttons_keylist:
-                        if mouse.isPressedIn(buttons["confirm"][button_name]):
-                            if button_name == "Yes":
-                                choice_finish = True
-                                previous_trial = False
-                                wait(iti)
-                                break
-                            elif button_name == "No":
-                                choice_finish = True
-                                calib_finish = True
-                                wait(iti)
-                                return
+                for button_name, button_rect in button_rect_list["confirm"].items():
+                    termination_check()
+                    if mouse.isPressedIn(button_rect):
+                        if button_name == "Yes":
+                            choice_finish = True
+                            previous_trial = False
+                        elif button_name == "No":
+                            choice_finish = True
+                            calib_finish = True
+                            previous_trial = False
+                            
+            mouse.clickReset()  
+            exp_win.flip()
+            wait(instruction_iti)
             
-        # Wait for participant to ready up for shock
+
         visual.TextStim(exp_win,
-            text=response_instructions["Shock"],
+            text=response_instructions["shock"],
             height = 35,
             pos = (0,0),
             wrapWidth= 800
@@ -668,26 +699,28 @@ def show_calib_trial(trial_order):
         
         if s != None:
             s.write(('WRITE '+str(shock_trig["high"])+' '+str(port_buffer_duration)+' 0\n').encode('utf-8'))
+
+        wait(1)
         
         # Get pain rating
-        while calib_rating.getRating() is None: # while mouse unclicked
+        while rating_stim["calibration"].getRating() is None: # while mouse unclicked
             termination_check()
-            pain_text.draw()
-            calib_rating.draw()
+            rating_text["pain"].draw()
+            rating_stim["calibration"].draw()
             exp_win.flip()
             
         pain_response_end_time = core.getTime() + response_hold_duration # amount of time for participants to adjust slider after making a response
         
         while core.getTime() < pain_response_end_time:
             termination_check()
-            pain_text.draw()
-            calib_rating.draw()
+            rating_text["pain"].draw()
+            rating_stim["calibration"].draw()
             exp_win.flip()
 
-        current_trial["pain_response"] = calib_rating.getRating()
-        calib_rating.reset()
+        current_trial["pain_response"] = rating_stim["calibration"].getRating()
+        rating_stim["calibration"].reset()
         exp_win.flip()
-        wait(iti)
+        wait(instruction_iti)
 
         # Feedback text
         if shock_trig["high"] == 1:
@@ -697,7 +730,7 @@ def show_calib_trial(trial_order):
         else:
             text = response_instructions["Check_max"]
 
-        visual.TextStim(win, text=text, height=35, pos=(0, 0)).draw()
+        visual.TextStim(exp_win, text=text, height=35, pos=(0, 0)).draw()
 
         # Draw buttons and text
         if shock_trig["high"] == 1:
@@ -705,21 +738,21 @@ def show_calib_trial(trial_order):
         elif shock_trig["high"] == 10:
             buttons_keylist = ["Previous", "Stay"]
         else:
-            buttons_keylist = buttons["calibration"].keys()
+            buttons_keylist = button_rect_list["calibration"].keys()
 
         for button_name in buttons_keylist:
-            buttons["calibration"][button_name].draw()
-            button_text["calibration"][button_name].draw()
+            button_rect_list["calibration"][button_name].draw()
+            button_text_list["calibration"][button_name].draw()
 
         exp_win.flip()
         
         # Wait for a mouse click
         trial_finish = False
-        mouse = event.Mouse()
         mouse.clickReset()
         
         while trial_finish == False:
-            for button_name, button_rect in buttons["calibration"].items():
+            for button_name, button_rect in button_rect_list["calibration"].items():
+                termination_check()
                 if mouse.isPressedIn(button_rect):
                     if button_name == "Next":
                         shock_trig["high"] += 1
@@ -740,9 +773,10 @@ def show_calib_trial(trial_order):
                     trial_finish = True
                     mouse.clickReset()                        
         exp_win.flip()
-        wait(iti)
+        wait(3)
 
-def show_trial(current_trial):
+def show_trial(current_trial,midtrial_rating):
+    termination_check()
     if s != None:
         s.write('WRITE 0\n') 
         
@@ -758,6 +792,8 @@ def show_trial(current_trial):
         
     while countdown_timer.getTime() < 8 and countdown_timer.getTime() > 7: #turn on RENS at 8 seconds
         termination_check()
+        if current_trial["context"] != None:
+            context_images[current_trial["context"]].draw()
         if current_trial["trialtype"] != "control":
             RENS_pulse_pattern_images[current_trial["trialtype"]].draw()
             RENS_pulse_pattern_text[current_trial["trialtype"]].draw()
@@ -766,61 +802,63 @@ def show_trial(current_trial):
                     termination_check()
                     if abs(countdown_timer.getTime() - math.floor(countdown_timer.getTime()) - time) < timer_precision_range:
                         s.write(('WRITE '+str(port)).encode('utf-8'))
-        if current_trial["context"] != None:
-            context_images[current_trial["context"]].draw()
         countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
         exp_win.flip()
 
     while countdown_timer.getTime() < 7 and countdown_timer.getTime() > 0: #ask for expectancy at 7 seconds
         termination_check()
+        if current_trial["context"] != None:
+            context_images[current_trial["context"]].draw()
         if current_trial["trialtype"] != "control":
             RENS_pulse_pattern_images[current_trial["trialtype"]].draw()
             RENS_pulse_pattern_text[current_trial["trialtype"]].draw()
             if s != None:
                 for time, port in RENS_pulse_pattern_trig_list[current_trial["trialtype"]]:
-                    termination_check()
+                    termination_check() 
                     if abs(countdown_timer.getTime() - math.floor(countdown_timer.getTime()) - time) < timer_precision_range:
                          s.write(('WRITE '+str(port)).encode('utf-8'))
-        if current_trial["context"] != None:
-            context_images[current_trial["context"]].draw()
         countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
         
-        # Ask for expectancy rating
-        exp_text.draw() 
-        exp_rating.draw()
+        # Ask for expectancy/anxiety rating
+        if midtrial_rating != None:
+            rating_text[str(midtrial_rating)].draw() 
+            rating_stim[str(midtrial_rating)].draw()
         exp_win.flip()    
-
-    current_trial["exp_response"] = exp_rating.getRating() #saves the expectancy response for that trial
-    exp_rating.reset() #resets the expectancy slider for subsequent trials
+        
+    if midtrial_rating != None:
+        current_trial[str(midtrial_rating)+"_response"] = rating_stim[str(midtrial_rating)].getRating() #saves the expectancy response for that trial
+        rating_stim[str(midtrial_rating)].reset() #resets the expectancy slider for subsequent trials
         
     # deliver shock
     fix_stim.draw()
     exp_win.flip()
     
     if s != None:
-        s.write(('WRITE '+str(pain_trig+eda_trig)+' '+str(port_buffer_duration)+' 0\n').encode('utf-8'))
+        s.write(('WRITE '+str(shock_trig["high"])+' '+str(port_buffer_duration)+' 0\n').encode('utf-8'))
 
+    wait(1)
+    
     # Get pain rating
-    while pain_rating.getRating() is None: # while mouse unclicked
+    while rating_stim["pain"].getRating() is None: # while mouse unclicked
         termination_check()
-        pain_rating.draw()
-        pain_text.draw()
+        rating_text["pain"].draw()
+        rating_stim["pain"].draw()
         exp_win.flip()
             
     pain_response_end_time = core.getTime() + response_hold_duration # amount of time for participants to adjust slider after making a response
-    
+        
     while core.getTime() < pain_response_end_time:
         termination_check()
-        pain_text.draw()
-        pain_rating.draw()
+        rating_text["pain"].draw()
+        rating_stim["pain"].draw()
         exp_win.flip()
-        
-    current_trial["pain_response"] = pain_rating.getRating()
-    pain_rating.reset()
+
+    current_trial["pain_response"] = rating_stim["pain"].getRating()
+    rating_stim["pain"].reset()
 
     exp_win.flip()
     
-    wait(iti)
+    wait(trial_iti)
 
 exp_finish = False
 
@@ -828,20 +866,33 @@ exp_finish = False
 # Run experiment
 while not exp_finish:
     termination_check()
-    # # display welcome and calibration instructions
+    # display welcome and calibration instructions
     instruction_trial(instructions_text["welcome"],3)
     instruction_trial(instructions_text["RENS_introduction"],3)
+    
     instruction_trial(instructions_text["calibration"],8)
-
-    for trial in list(filter(lambda trial: trial['phase'] == "calibration", trial_order)):
-        show_calib_trial(trial)
+    show_calib_trial([
+        trial for trial in trial_order
+        if trial["phase"] == "calibration"])
+        
     instruction_trial(instructions_text["calibration_finish"],2)
 
     #display main experiment phase
     instruction_trial(instructions_text["experiment"],10)
-    # for trial in trial_order:
-    for trial in [t for t in trial_order if t["phase"] == "test"]: #for testing extinction
-        show_trial(trial)
+    previous_block = 1
+    midtrial_index = cb % 2
+    
+    for trial in [t for t in trial_order if t["phase"] != "calibration"]:
+        #alternate anxiety vs expectancy
+        if trial["blocknum"] == 1 and trial["phase"] == "extinction":
+            show_trial(trial,None)
+        else: 
+            if trial["blocknum"] != previous_block:    
+                midtrial_index = (midtrial_index + 1) % len(midtrial_rating_list)
+                previous_block = trial["blocknum"]
+                
+            midtrial_rating = midtrial_rating_list[midtrial_index]
+            show_trial(trial,midtrial_rating)
         
     if s != None:
         s.write('WRITE 0\n')  # Set all pins to 0 to shut off RENS, shock etc.    
