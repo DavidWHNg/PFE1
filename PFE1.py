@@ -670,10 +670,13 @@ def show_calib_trial(trial_order):
                         if button_name == "Yes":
                             choice_finish = True
                             previous_trial = False
+                            break
                         elif button_name == "No":
                             choice_finish = True
                             calib_finish = True
                             previous_trial = False
+                            wait(instruction_iti)
+                            return
                             
             mouse.clickReset()  
             exp_win.flip()
@@ -771,7 +774,8 @@ def show_calib_trial(trial_order):
                         previous_trial = True
     
                     trial_finish = True
-                    mouse.clickReset()                        
+                    mouse.clickReset()    
+                    break                    
         exp_win.flip()
         wait(3)
 
