@@ -92,7 +92,7 @@ while True:
             print(f"Data for participant {P_info['PID']} already exists. Choose a different participant ID.") ### to avoid re-writing existing data
             
         else:
-            cb = int(P_info["PID"]) % 8
+            cb = int(P_info["PID"]) % 16
             
 
             
@@ -128,6 +128,9 @@ RENS_pulse_pattern_names = {
     "monopolar": "constant",
     "bipolar": "pause"
 }
+RENS_cb = {"N" : (cb // 8) % 2,
+           "M" : (cb // 8) % 2 - 1,
+           }
 
 RENS_pulse_pattern_images = {"monopolar": visual.ImageStim(exp_win,
                                     image=os.path.join(stimulus_folder, RENS_pulse_pattern_names["monopolar"]+".png"),
@@ -175,10 +178,11 @@ RENS_pulse_pattern_text = {
 }
 context_trial_list = ["C","X","F","G"]
 context_image_names = {
-    context_trial_list[cb%4]: "field",
-    context_trial_list[cb%4-1]: "mountain",
-    context_trial_list[cb%4-2]: "forest",
-    context_trial_list[cb%4-3]: "beach"}
+    context_trial_list[cb % 4]: "field",
+    context_trial_list[(cb % 4) - 1]: "mountain",
+    context_trial_list[(cb % 4) - 2]: "forest",
+    context_trial_list[(cb % 4) - 3]: "beach"
+}
 
 context_images = {"C": visual.ImageStim(exp_win,
                                     image=os.path.join(stimulus_folder, context_image_names["C"]+".jpg"),
@@ -306,15 +310,15 @@ num_trials_block = {
         "conditioning": {
             "N+": {
                 "num":1,
-                "stimulus": RENS_names[cb%2],
-                "trialtype": RENS_names[cb%2],
+                "stimulus": RENS_names[RENS_cb["N"]],
+                "trialtype": RENS_names[RENS_cb["N"]],
                 "outcome": "high",
                 "context": None,
             },
             "M+": {
                 "num":1,
-                "stimulus": RENS_names[cb%2-1],
-                "trialtype": RENS_names[cb%2-1],
+                "stimulus": RENS_names[RENS_cb["M"]],
+                "trialtype": RENS_names[RENS_cb["M"]],
                 "outcome": "high",
                 "context": None, 
             },
@@ -336,15 +340,15 @@ num_trials_block = {
         "extinction": {
             "N-": {
                 "num":1,
-                "stimulus": RENS_names[cb%2],
-                "trialtype": RENS_names[cb%2],
+                "stimulus": RENS_names[RENS_cb["N"]],
+                "trialtype": RENS_names[RENS_cb["N"]],
                 "outcome": "med",
                 "context": "X",
             },
             "M-": {
                 "num":1,
-                "stimulus": RENS_names[cb%2-1],
-                "trialtype": RENS_names[cb%2-1],
+                "stimulus": RENS_names[RENS_cb["M"]],
+                "trialtype": RENS_names[RENS_cb["M"]],
                 "outcome": "med",
                 "context": None, 
             },
@@ -373,15 +377,15 @@ num_trials_block = {
         "test": {
             "N-": {
                 "num":1,
-                "stimulus": RENS_names[cb%2],
-                "trialtype": RENS_names[cb%2],
+                "stimulus": RENS_names[RENS_cb["N"]],
+                "trialtype": RENS_names[RENS_cb["N"]],
                 "outcome": "med",
                 "context": None,
             },
             "M-": {
                 "num":1,
-                "stimulus": RENS_names[cb%2-1],
-                "trialtype": RENS_names[cb%2-1],
+                "stimulus": RENS_names[RENS_cb["M"]],
+                "trialtype": RENS_names[RENS_cb["M"]],
                 "outcome": "med",
                 "context": None, 
             },
@@ -871,20 +875,20 @@ exp_finish = False
 while not exp_finish:
     termination_check()
     # display welcome and calibration instructions
-    instruction_trial(instructions_text["welcome"],3)
-    instruction_trial(instructions_text["RENS_introduction"],3)
+    # instruction_trial(instructions_text["welcome"],3)
+    # instruction_trial(instructions_text["RENS_introduction"],3)
     
-    instruction_trial(instructions_text["calibration"],8)
-    show_calib_trial([
-        trial for trial in trial_order
-        if trial["phase"] == "calibration"])
+    # instruction_trial(instructions_text["calibration"],8)
+    # show_calib_trial([
+    #     trial for trial in trial_order
+    #     if trial["phase"] == "calibration"])
         
-    instruction_trial(instructions_text["calibration_finish"],2)
+    # instruction_trial(instructions_text["calibration_finish"],2)
 
-    #display main experiment phase
-    instruction_trial(instructions_text["experiment"],10)
+    # #display main experiment phase
+    # instruction_trial(instructions_text["experiment"],10)
     previous_block = 1
-    midtrial_index = cb % 2
+    midtrial_index = (cb // 4) % 2
     
     for trial in [t for t in trial_order if t["phase"] != "calibration"]:
         #alternate anxiety vs expectancy
