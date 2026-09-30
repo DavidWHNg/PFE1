@@ -496,9 +496,9 @@ instructions_text = {
     "welcome": "Welcome to the experiment! Please read the following instructions carefully.", 
     "RENS_introduction": "This experiment aims to investigate the effects of Repetitive Electrical Nerve Stimulation (RENS) and imagery on pain sensitivity. Different frequencies of RENS and types of imagery have been shown to alter pain perception. \n\n"
         "The RENS itself is not painful, but you will feel a small sensation when it is turned on. Today we are testing the effects of monopolar and bipolar frequencies. You will also be shown a number of different images during the experiment",
-    "calibration" : "Firstly, we are going to calibrate the pain intensity for the shocks you will receive in the experiment without RENS or imagery. As this is a study about pain, we want you to feel a moderate bit of pain, but nothing unbearable. "
+    "calibration" : "Firstly, we are going to calibrate the pain intensity for the shocks you will receive in the experiment without RENS and images. As this is a study about pain, we want you to feel a moderate bit of pain, but nothing unbearable. "
         "The machine will start low, and then will gradually work up. We want to get to a level which is painful but tolerable, so roughly at a rating of around 7 out of 10, where 1 is not painful and 10 is very painful. \n\n"
-        "Note that participants must be able to tolerate at least the third level of shock intensity to be eligible for this experiment.\n\n"
+        "After each shock you will be asked if that level was ok, and you will be given the option to either try the next level or set the current shock level for the experiment.\n\n "
         "After reaching the minimum level of shock you will be given the option to increase the intensity or set the current shock level for the experiment.\n\n"
         "Please ask the experimenter if you have any questions at anytime. ",
     "calibration_finish": "Thank you for completing the calibration, your maximum shock intensity has now been set.",
