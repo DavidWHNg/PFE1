@@ -124,21 +124,21 @@ fix_stim = visual.TextStim(exp_win,
 #load in RENS graphics
 RENS_names = ["monopolar", "bipolar"]
 
-RENS_pulse_pattern_names = {
-    "monopolar": "constant",
-    "bipolar": "pause"
-}
+context_image_cb = cb % 4
+
 RENS_cb = {"N" : (cb // 8) % 2,
            "M" : (cb // 8) % 2 - 1,
            }
 
+midtrial_rating_cb = (cb // 4) % 2
+
 RENS_pulse_pattern_images = {"monopolar": visual.ImageStim(exp_win,
-                                    image=os.path.join(stimulus_folder, RENS_pulse_pattern_names["monopolar"]+".png"),
+                                    image=os.path.join(stimulus_folder, "monopolar"+".png"),
                                     size = RENS_image_size,
                                     pos = RENS_image_pos
                                     ),
                             "bipolar": visual.ImageStim(exp_win,
-                                    image=os.path.join(stimulus_folder, RENS_pulse_pattern_names["bipolar"]+".png"),
+                                    image=os.path.join(stimulus_folder, "bipolar"+".png"),
                                     size = RENS_image_size,
                                     pos = RENS_image_pos
                             ),
@@ -165,10 +165,10 @@ RENS_pulse_pattern_text = {
 }
 context_trial_list = ["C","X","F","G"]
 context_image_names = {
-    context_trial_list[cb % 4]: "field",
-    context_trial_list[(cb % 4) - 1]: "mountain",
-    context_trial_list[(cb % 4) - 2]: "forest",
-    context_trial_list[(cb % 4) - 3]: "beach"
+    context_trial_list[context_image_cb]: "field",
+    context_trial_list[context_image_cb - 1]: "mountain",
+    context_trial_list[context_image_cb - 2]: "forest",
+    context_trial_list[context_image_cb - 3]: "beach"
 }
 
 context_images = {"C": visual.ImageStim(exp_win,
@@ -326,7 +326,7 @@ num_trials_block = {
             },
         },
         "extinction": {
-            "N": {
+            "NX": {
                 "num":1,
                 "stimulus": RENS_names[RENS_cb["N"]],
                 "trialtype": RENS_names[RENS_cb["N"]],
@@ -487,7 +487,7 @@ rating_stim = {
 
 for slider in rating_stim.values():
     slider.marker.size = (30, 30)
-    slider.marker.color = "yellow"
+    slider.marker.color = "red"
     slider.validArea.size = (660, 100)
 
 
@@ -800,7 +800,7 @@ def show_trial(current_trial,midtrial_rating):
             RENS_pulse_pattern_images[current_trial["stimulus"]].draw()
             RENS_pulse_pattern_text[current_trial["stimulus"]].draw()
             if s != None:
-                for time, port in RENS_pulse_pattern_trig_list[RENS_pulse_pattern_names[current_trial["stimulus"]]]:
+                for time, port in RENS_pulse_pattern_trig_list[current_trial["stimulus"]]:
                     if abs(countdown_timer.getTime() - math.floor(countdown_timer.getTime()) - time) < timer_precision_range:
                         s.write(('WRITE '+str(port)+' 1000 0\n').encode('utf-8'))
         countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
@@ -814,7 +814,7 @@ def show_trial(current_trial,midtrial_rating):
             RENS_pulse_pattern_images[current_trial["stimulus"]].draw()
             RENS_pulse_pattern_text[current_trial["stimulus"]].draw()
             if s != None:
-                for time, port in RENS_pulse_pattern_trig_list[RENS_pulse_pattern_names[current_trial["stimulus"]]]:
+                for time, port in RENS_pulse_pattern_trig_list[current_trial["stimulus"]]:
                     if abs(countdown_timer.getTime() - math.floor(countdown_timer.getTime()) - time) < timer_precision_range:
                         # s.write(('WRITE '+str(port)+ '1000 0\n').encode('utf-8'))
                         s.write(('WRITE '+str(port)+' 1000 0\n').encode('utf-8'))
@@ -881,7 +881,6 @@ while not exp_finish:
     #display main experiment phase
     instruction_trial(instructions_text["experiment"],10)
     previous_block = 1
-    midtrial_index = (cb // 4) % 2
     
     for trial in [t for t in trial_order if t["phase"] != "calibration"]:
         #alternate anxiety vs expectancy
@@ -889,11 +888,12 @@ while not exp_finish:
             show_trial(trial,None)
         else: 
             if trial["blocknum"] != previous_block:    
-                midtrial_index = (midtrial_index + 1) % len(midtrial_rating_list)
+                midtrial_rating_cb = (midtrial_rating_cb + 1) % len(midtrial_rating_list)
                 previous_block = trial["blocknum"]
                 
-            midtrial_rating = midtrial_rating_list[midtrial_index]
+            midtrial_rating = midtrial_rating_list[midtrial_rating_cb]
             show_trial(trial,midtrial_rating)
+        save_data(trial_order)
         
     if s != None:
         s.write(b'WRITE 0\n')  # Set all pins to 0 to shut off RENS, shock etc.    
